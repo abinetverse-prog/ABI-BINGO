@@ -939,7 +939,7 @@ async function emailLogin(){
 async function googleLogin(){
   const provider = new firebase.auth.GoogleAuthProvider();
   try{
-    await auth.signInWithredirect(provider);
+    await auth.signInWithRedirect(provider);
   }catch(e){
     document.getElementById("loginError").innerText  = e.message;
     document.getElementById("signupError").innerText = e.message;
