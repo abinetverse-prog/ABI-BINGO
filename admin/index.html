@@ -1,93 +1,29 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Owner/Admin Dashboard</title>
-</head>
-<body>
-
-<h2>👑 Dashboard</h2>
-
-<div id="status">Checking access...</div>
-
-<h3>Users</h3>
-<ul id="usersList"></ul>
-
-<script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyDX-pa6aYoRLAM9oODEZMgLnLiyn8jj-m8",
-  authDomain: "abi-net.firebaseapp.com",
-  projectId: "abi-net",
-  storageBucket: "abi-net.firebasestorage.app",
-  messagingSenderId: "962956606571",
-  appId: "1:962956606571:web:dad08fd516543b010a052e",
-  measurementId: "G-GGZZ8CTPMT"
-};
-  apiKey: "AIzaSyDX-pa6aYoRLAM9oODEZMgLnLiyn8jj-m8",
-  authDomain: "abi-net.firebaseapp.com",
-  projectId: "abi-net",
-  storageBucket: "abi-net.firebasestorage.app",
-  messagingSenderId: "962956606571",
-  appId: "1:962956606571:web:dad08fd516543b010a052e"
-};
-/* 🔥 END CONFIG */
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// 🔐 CHECK OWNER / ADMIN
 onAuthStateChanged(auth, async (user) => {
+  const status = document.getElementById("status");
 
   if (!user) {
-    window.location.href = "/index.html";
+    status.innerText = "Not logged in";
     return;
   }
+
+  status.innerText = "Logged in: " + user.email;
 
   const userRef = doc(db, "users", user.uid);
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists()) {
-    window.location.href = "/index.html";
+    status.innerText = "User not found in Firestore";
     return;
   }
 
   const data = userSnap.data();
 
   if (data.role !== "owner" && data.role !== "admin") {
-    alert("Not authorized");
-    window.location.href = "/index.html";
+    status.innerText = "No permission";
     return;
   }
 
-  document.getElementById("status").innerText =
-    "Welcome " + data.role.toUpperCase();
+  status.innerText = "Access granted ✔";
 
   loadUsers();
 });
-
-// 📦 LOAD USERS
-async function loadUsers() {
-  const querySnapshot = await getDocs(collection(db, "users"));
-  const list = document.getElementById("usersList");
-
-  list.innerHTML = "";
-
-  querySnapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-
-    const li = document.createElement("li");
-    li.textContent = `${data.name || "No Name"} - ${data.role}`;
-    list.appendChild(li);
-  });
-}
-
-</script>
-
-</body>
-</html>
