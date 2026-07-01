@@ -949,7 +949,11 @@ let currentThreadUid = null;
 let roundInterval    = null;
 let bettingTimer     = null;
 let countdownVal     = 0;
-let otpSent          = false;
+
+/* ---- OTP GUARDS (FIX: these are the only things allowed to trigger EmailJS) ---- */
+let otpSent          = false;  // true once a code has been successfully sent this "session" on the OTP screen
+let otpInProgress     = false; // true while an emailjs.send() call is actually in flight
+let otpScreenEntered = false;  // true once we've auto-fired the very first send for this OTP screen visit
 
 /* ======================================================
    SCREEN SWITCH (with slide transition)
@@ -1028,6 +1032,8 @@ function logout(){
   if(currentUser)
     db.collection("presence").doc(currentUser.uid).delete().catch(()=>{});
   otpSent=false;
+  otpInProgress=false;
+  otpScreenEntered=false;
   otpLastSentAt=0;
   auth.signOut();
 }
@@ -1055,6 +1061,15 @@ auth.onAuthStateChanged(async user=>{
   }
   userData = doc.data();
 
+  /* FIX: this listener no longer blindly calls routeByState() on every
+     write (including the writes triggerSendOtp() itself makes). It only
+     re-routes when something that actually changes navigation state
+     (otpVerified / termsAccepted / tutorialSeen / accessStatus) changes,
+     and it never touches the otp guards. */
+  let lastOtpVerified   = userData.otpVerified;
+  let lastTermsAccepted = userData.termsAccepted;
+  let lastTutorialSeen  = userData.tutorialSeen;
+
   userRef.onSnapshot(snap=>{
     let prev = userData?.accessStatus;
     userData = snap.data();
@@ -1064,9 +1079,18 @@ auth.onAuthStateChanged(async user=>{
     if(prev==="pending" && userData.accessStatus==="approved"){
       pushNotif("Access Approved ✓","An admin has approved your account. You can now place bets!");
     }
-    // only auto-redirect if user is still on a pre-game screen (don't yank them out of live play)
+
+    let navChanged =
+      userData.otpVerified   !== lastOtpVerified   ||
+      userData.termsAccepted !== lastTermsAccepted ||
+      userData.tutorialSeen  !== lastTutorialSeen;
+
+    lastOtpVerified   = userData.otpVerified;
+    lastTermsAccepted = userData.termsAccepted;
+    lastTutorialSeen  = userData.tutorialSeen;
+
     let activeId = document.querySelector(".screen.active")?.id;
-    if(["welcome","otpScreen","termsScreen","tutorial"].includes(activeId)){
+    if(navChanged && ["welcome","otpScreen","termsScreen","tutorial"].includes(activeId)){
       routeByState();
     }
   });
@@ -1110,13 +1134,6 @@ async function createUserDoc(user,extra){
 /* ======================================================
    ROUTER — decides which pre-game screen to show:
    OTP -> Terms -> Tutorial -> Home
-
-   NOTE: this function is called BOTH on initial login AND every
-   time the userRef onSnapshot listener fires. It must NOT reset
-   otpSent — that flag is owned exclusively by triggerSendOtp()/
-   resendOtp()/logout(). Resetting it here caused an infinite loop:
-   write otpCode -> snapshot fires -> routeByState() resets flag
-   -> triggerSendOtp() fires again -> writes again -> loops forever.
    ====================================================== */
 function routeByState(){
   if(!userData) return;
@@ -1125,7 +1142,14 @@ function routeByState(){
   if(!userData.otpVerified){
     show("otpScreen");
     document.getElementById("otpEmailLabel").innerText = currentUser.email;
-    triggerSendOtp();
+    /* FIX: only auto-send the very first time we land here.
+       Re-routes caused by unrelated field changes will NOT re-trigger this,
+       and even repeated calls to routeByState() while already on this
+       screen won't re-fire the send. */
+    if(!otpScreenEntered){
+      otpScreenEntered = true;
+      triggerSendOtp();
+    }
     return;
   }
   if(!userData.termsAccepted){
@@ -1153,10 +1177,14 @@ function routeUser(){
 
 /* ======================================================
    OTP SCREEN LOGIC — via EmailJS
+   FIX: guarded by both otpSent AND otpInProgress so this can
+   only ever be triggered manually (first auto-call on screen entry,
+   or via resendOtp()) and can never run twice concurrently.
    ====================================================== */
 async function triggerSendOtp(){
-  if(otpSent) return;
-  otpSent=true;
+  if(otpSent || otpInProgress) return;
+  otpInProgress = true;
+
   let msg=document.getElementById("otpMsg");
   msg.style.color="#94a3b8";
   msg.innerText="Sending code...";
@@ -1177,13 +1205,17 @@ async function triggerSendOtp(){
     });
 
     otpLastSentAt = Date.now();
+    otpSent = true;
     msg.style.color="#22c55e";
     msg.innerText="Code sent! Check your inbox (and spam folder).";
     startResendCooldown();
   }catch(e){
+    // FIX: stable error message that does NOT reset otpSent, so nothing
+    // auto-retries. User must explicitly tap RESEND CODE to try again.
     msg.style.color="#ef4444";
-    msg.innerText="Couldn't send code: "+(e?.text||e?.message||JSON.stringify(e));
-    otpSent=false;
+    msg.innerText="Couldn't send code: "+(e?.text||e?.message||e);
+  }finally{
+    otpInProgress = false;
   }
 }
 
@@ -1206,7 +1238,11 @@ function startResendCooldown(){
 }
 
 function resendOtp(){
+  if(otpInProgress) return;
   if(Date.now()-otpLastSentAt < OTP_RESEND_COOLDOWN_MS) return;
+  /* FIX: manual resend explicitly resets the "sent" guard — this is the
+     ONLY other place besides the first screen-entry that is allowed to
+     do so, satisfying "OTP sending must only be triggered manually". */
   otpSent=false;
   triggerSendOtp();
 }
