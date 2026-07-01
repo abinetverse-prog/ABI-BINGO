@@ -180,6 +180,18 @@ input::placeholder{ color:#475569; }
 .phase-label{ font-size:13px; color:#94a3b8; }
 .phase-val{ font-weight:bold; color:#facc15; }
 
+/* ===== PATTERN BADGE / MINI GRID ===== */
+.pattern-badge{
+  background:linear-gradient(135deg,#7e22ce,#a855f7);
+  border-radius:12px; padding:10px 14px; margin:10px 0;
+  display:flex; align-items:center; gap:12px;
+}
+.pattern-badge-name{ font-weight:900; font-size:13px; flex:1; line-height:1.4; }
+.mini-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:2px; width:64px; flex-shrink:0; }
+.mini-cell{ aspect-ratio:1; background:rgba(0,0,0,0.35); border-radius:2px; }
+.mini-cell.req{ background:#facc15; }
+.mini-cell.free2{ background:#0b1220; border:1px solid #facc15; }
+
 /* ===== HISTORY TAB ===== */
 .history-entry{
   background:#1e293b; border:1px solid #334155;
@@ -240,6 +252,7 @@ input::placeholder{ color:#475569; }
   border-color:#a855f7; color:white; font-size:11px;
 }
 .cell.called-highlight{ border-color:#facc15; }
+.cell.pattern-req{ box-shadow:inset 0 0 0 2px #facc15; }
 
 .history-wrap{
   background:#1e293b; border-radius:10px; padding:10px;
@@ -281,6 +294,34 @@ input::placeholder{ color:#475569; }
 }
 .dash-num{ font-size:28px; font-weight:900; color:#facc15; }
 .dash-label{ font-size:11px; color:#64748b; margin-top:4px; }
+
+/* ===== PATTERN MANAGEMENT (ADMIN) ===== */
+.pattern-editor-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; max-width:260px; margin:12px auto; }
+.pattern-editor-cell{
+  aspect-ratio:1; background:#1e293b; border:1px solid #334155;
+  border-radius:6px; cursor:pointer; transition:all 0.15s;
+}
+.pattern-editor-cell.on{
+  background:linear-gradient(135deg,#16a34a,#22c55e); border-color:#22c55e;
+}
+.pattern-editor-cell.free2{
+  background:#7e22ce; border-color:#a855f7; cursor:default;
+}
+.pattern-list-row{
+  display:flex; align-items:center; justify-content:space-between;
+  background:#1e293b; border:1px solid #334155; border-radius:10px;
+  padding:10px 14px; margin:6px 0; font-size:13px;
+}
+.pattern-toggle{
+  width:40px; height:22px; border-radius:20px; position:relative;
+  cursor:pointer; background:#334155; transition:.2s; flex-shrink:0;
+}
+.pattern-toggle.on{ background:#22c55e; }
+.pattern-toggle::after{
+  content:''; position:absolute; top:2px; left:2px;
+  width:18px; height:18px; background:white; border-radius:50%; transition:.2s;
+}
+.pattern-toggle.on::after{ left:20px; }
 
 /* ===== FLOATING CHAT ===== */
 .chat-fab{
@@ -402,6 +443,24 @@ input::placeholder{ color:#475569; }
   to{top:20px;opacity:1;}
 }
 
+/* ===== WINNER OVERLAY ===== */
+#confettiCanvas{ position:fixed; inset:0; z-index:5001; pointer-events:none; }
+.winner-overlay{
+  position:fixed; inset:0; background:rgba(11,18,32,0.94);
+  z-index:5000; display:none; align-items:center; justify-content:center;
+  flex-direction:column; text-align:center; padding:20px;
+}
+.winner-overlay.show{ display:flex; }
+.winner-emoji{ font-size:70px; animation:winnerPop 0.6s ease; }
+@keyframes winnerPop{
+  0%{ transform:scale(0); }
+  60%{ transform:scale(1.25); }
+  100%{ transform:scale(1); }
+}
+.winner-name{ font-size:28px; font-weight:900; color:#facc15; margin:12px 0 4px; }
+.winner-type{ font-size:16px; color:#c084fc; font-weight:bold; }
+.winner-pts{ font-size:18px; color:#22c55e; margin-top:10px; font-weight:bold; }
+
 /* ===== BOTTOM NAV (player) ===== */
 .bottom-nav{
   position:fixed; bottom:0; left:0; right:0;
@@ -430,6 +489,16 @@ input::placeholder{ color:#475569; }
 
 <!-- ===== NOTIFICATION DRAWER ===== -->
 <div class="notif-drawer" id="notifDrawer"></div>
+
+<!-- ===== CONFETTI + WINNER OVERLAY ===== -->
+<canvas id="confettiCanvas"></canvas>
+<div class="winner-overlay" id="winnerOverlay">
+  <div class="winner-emoji">🏆</div>
+  <div class="winner-name" id="winnerNameEl">-</div>
+  <div class="winner-type" id="winnerTypeEl">-</div>
+  <div class="winner-pts" id="winnerPtsEl">-</div>
+  <button class="btn btn-outline" style="max-width:200px;margin-top:24px;" onclick="closeWinnerOverlay()">CLOSE</button>
+</div>
 
 <!-- ===== WELCOME ===== -->
 <div id="welcome" class="screen active">
@@ -576,15 +645,15 @@ input::placeholder{ color:#475569; }
       </div>
       <div class="step">
         <div class="step-num">4</div>
-        <div class="step-text"><strong>Join during betting phase</strong> — 30 second window before numbers start calling. You get a random unique card — cards cannot be hand-picked.</div>
+        <div class="step-text"><strong>Join during betting phase</strong> — before numbers start calling, a random winning pattern is announced and you get a random unique card.</div>
       </div>
       <div class="step">
         <div class="step-num">5</div>
-        <div class="step-text"><strong>Play</strong> — B(1-15) I(16-30) N(31-45) G(46-60) O(61-75). Mark numbers and press BINGO when you complete a pattern!</div>
+        <div class="step-text"><strong>Play</strong> — B(1-15) I(16-30) N(31-45) G(46-60) O(61-75). Mark called numbers on your card to match the announced pattern.</div>
       </div>
       <div class="step">
         <div class="step-num">6</div>
-        <div class="step-text"><strong>Win types</strong> — 1 LINE (25) · FOUR CORNERS (25) · 2 LINE (50) · X PATTERN (60) · FULL BINGO (100).</div>
+        <div class="step-text"><strong>Win automatically</strong> — the instant your card completes the announced pattern, your win is verified and the round stops!</div>
       </div>
       <button class="btn btn-green" style="margin-top:30px;" onclick="acceptTutorial()">GOT IT — LET'S PLAY</button>
     </div>
@@ -643,6 +712,12 @@ input::placeholder{ color:#475569; }
           <div class="phase-label">Countdown</div>
           <div style="font-size:24px;font-weight:900;color:#ef4444;" id="homeCountdown"></div>
         </div>
+      </div>
+
+      <!-- ACTIVE PATTERN BADGE -->
+      <div class="pattern-badge" id="homePatternBadge" style="display:none;">
+        <div class="mini-grid" id="homePatternMini"></div>
+        <div class="pattern-badge-name">🎯 Tonight's pattern:<br><span id="homePatternName">-</span></div>
       </div>
 
       <div class="card" id="homeCardBox">
@@ -722,6 +797,12 @@ input::placeholder{ color:#475569; }
       </div>
     </div>
 
+    <!-- ACTIVE PATTERN BADGE -->
+    <div class="pattern-badge" id="gamePatternBadge" style="display:none;">
+      <div class="mini-grid" id="gamePatternMini"></div>
+      <div class="pattern-badge-name">🎯 Pattern:<br><span id="gamePatternName">-</span></div>
+    </div>
+
     <div class="letter-display" id="letterDisplay">-</div>
     <div id="numberBox">-</div>
 
@@ -766,6 +847,7 @@ input::placeholder{ color:#475569; }
       <button class="admin-tab" onclick="showAdminTab('tabRequests',this)">👥 Requests</button>
       <button class="admin-tab" onclick="showAdminTab('tabPoints',this)">⭐ Points</button>
       <button class="admin-tab" onclick="showAdminTab('tabRound',this)">🎮 Round</button>
+      <button class="admin-tab" onclick="showAdminTab('tabPatterns',this)">🧩 Patterns</button>
     </div>
 
     <!-- DASHBOARD -->
@@ -794,7 +876,8 @@ input::placeholder{ color:#475569; }
           <strong>Current Phase</strong>
           <span id="dashPhase" class="pill pill-pending">-</span>
         </div>
-        <div style="font-size:13px;color:#94a3b8;" id="dashLastWin">No recent winners</div>
+        <div style="font-size:13px;color:#94a3b8;">Pattern: <span id="dashPatternName" style="color:#facc15;font-weight:bold;">-</span></div>
+        <div style="font-size:13px;color:#94a3b8;margin-top:4px;" id="dashLastWin">No recent winners</div>
       </div>
     </div>
 
@@ -828,14 +911,43 @@ input::placeholder{ color:#475569; }
       <h3 style="margin-bottom:12px;">Game Control</h3>
       <div class="card">
         <p style="color:#94a3b8;font-size:13px;margin-bottom:14px;">
-          Start a new 30-second betting phase, then numbers call automatically every 2 seconds.
+          Start a new 30-second betting phase. A winning pattern is picked automatically
+          (or force one below), then numbers call automatically at the interval you set.
         </p>
+        <div class="input-group">
+          <label>Force Pattern (optional — leave blank for random)</label>
+          <select id="forcePatternSelect"><option value="">-- Random enabled pattern --</option></select>
+        </div>
+        <div class="input-group">
+          <label>Number Call Interval (seconds)</label>
+          <input type="number" id="callIntervalInput" value="3" min="2" max="10">
+        </div>
         <button class="btn btn-yellow" onclick="adminStartRound()">▶ START NEW ROUND</button>
         <button class="btn btn-red" style="margin-top:6px;" onclick="adminStopRound()">⏹ STOP ROUND</button>
         <p id="roundMsg" style="font-size:13px;margin-top:8px;color:#22c55e;"></p>
       </div>
-      <h4 style="margin:16px 0 8px;">Win Claims</h4>
+      <h4 style="margin:16px 0 8px;">Recent Winners</h4>
       <div id="winClaimsList"></div>
+    </div>
+
+    <!-- PATTERNS -->
+    <div id="tabPatterns" class="tab-panel">
+      <h3 style="margin-bottom:12px;">Winning Patterns</h3>
+      <div class="card">
+        <p style="color:#94a3b8;font-size:13px;margin-bottom:10px;">Toggle which patterns can be randomly selected each round.</p>
+        <div id="patternList"><p style="color:#64748b;">Loading...</p></div>
+      </div>
+      <h4 style="margin:18px 0 8px;">Create Custom Pattern</h4>
+      <div class="card">
+        <div class="input-group">
+          <label>Pattern Name</label>
+          <input type="text" id="customPatternName" placeholder="e.g. My Special Shape">
+        </div>
+        <p style="font-size:12px;color:#64748b;margin:8px 0;">Tap cells to build the required shape (center is always FREE):</p>
+        <div class="pattern-editor-grid" id="patternEditorGrid"></div>
+        <button class="btn btn-purple" onclick="saveCustomPattern()">💾 SAVE CUSTOM PATTERN</button>
+        <p id="customPatternMsg" style="font-size:13px;margin-top:8px;color:#22c55e;"></p>
+      </div>
     </div>
   </div>
 </div>
@@ -950,10 +1062,19 @@ let roundInterval    = null;
 let bettingTimer     = null;
 let countdownVal     = 0;
 
-/* ---- OTP GUARDS (FIX: these are the only things allowed to trigger EmailJS) ---- */
-let otpSent          = false;  // true once a code has been successfully sent this "session" on the OTP screen
-let otpInProgress     = false; // true while an emailjs.send() call is actually in flight
-let otpScreenEntered = false;  // true once we've auto-fired the very first send for this OTP screen visit
+/* ---- OTP GUARDS ---- */
+let otpSent          = false;
+let otpInProgress     = false;
+let otpScreenEntered = false;
+
+/* ---- PATTERN / WIN ENGINE STATE ---- */
+let currentRoundPattern = null;   // {name, mask:[indices]}
+let hasClaimedThisRound = false;
+let payoutProcessed     = false;
+let liveWinnerUid       = null;
+let lastSeenWinnerUid   = null;
+let lastPhase           = null;
+let editingMask          = [12];
 
 /* ======================================================
    SCREEN SWITCH (with slide transition)
@@ -1026,7 +1147,7 @@ async function googleLogin(){
 
 function logout(){
   if(roundInterval) clearInterval(roundInterval);
-  if(bettingTimer)  clearInterval(bettingTimer);
+  if(bettingTimer)  clearTimeout(bettingTimer);
   if(unsubThread)   unsubThread();
   if(unsubRound)    unsubRound();
   if(currentUser)
@@ -1061,11 +1182,6 @@ auth.onAuthStateChanged(async user=>{
   }
   userData = doc.data();
 
-  /* FIX: this listener no longer blindly calls routeByState() on every
-     write (including the writes triggerSendOtp() itself makes). It only
-     re-routes when something that actually changes navigation state
-     (otpVerified / termsAccepted / tutorialSeen / accessStatus) changes,
-     and it never touches the otp guards. */
   let lastOtpVerified   = userData.otpVerified;
   let lastTermsAccepted = userData.termsAccepted;
   let lastTutorialSeen  = userData.tutorialSeen;
@@ -1137,15 +1253,11 @@ async function createUserDoc(user,extra){
    ====================================================== */
 function routeByState(){
   if(!userData) return;
-  if(isAdmin) return; // admins skip straight to admin panel
+  if(isAdmin) return;
 
   if(!userData.otpVerified){
     show("otpScreen");
     document.getElementById("otpEmailLabel").innerText = currentUser.email;
-    /* FIX: only auto-send the very first time we land here.
-       Re-routes caused by unrelated field changes will NOT re-trigger this,
-       and even repeated calls to routeByState() while already on this
-       screen won't re-fire the send. */
     if(!otpScreenEntered){
       otpScreenEntered = true;
       triggerSendOtp();
@@ -1177,9 +1289,6 @@ function routeUser(){
 
 /* ======================================================
    OTP SCREEN LOGIC — via EmailJS
-   FIX: guarded by both otpSent AND otpInProgress so this can
-   only ever be triggered manually (first auto-call on screen entry,
-   or via resendOtp()) and can never run twice concurrently.
    ====================================================== */
 async function triggerSendOtp(){
   if(otpSent || otpInProgress) return;
@@ -1193,14 +1302,13 @@ async function triggerSendOtp(){
     let code = generateOtpCode();
     let expires = Date.now() + OTP_TTL_MS;
 
-    // store the code + expiry on the user doc so we can verify it client-side
     await userRef.update({ otpCode: code, otpExpires: expires });
 
     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
       to_email: currentUser.email,
       to_name: userData?.name || currentUser.email,
       otp_code: code,
-      passcode: code,      // duplicate variable name in case your template uses a different key
+      passcode: code,
       time: "10 minutes"
     });
 
@@ -1210,8 +1318,6 @@ async function triggerSendOtp(){
     msg.innerText="Code sent! Check your inbox (and spam folder).";
     startResendCooldown();
   }catch(e){
-    // FIX: stable error message that does NOT reset otpSent, so nothing
-    // auto-retries. User must explicitly tap RESEND CODE to try again.
     msg.style.color="#ef4444";
     msg.innerText="Couldn't send code: "+(e?.text||e?.message||e);
   }finally{
@@ -1240,9 +1346,6 @@ function startResendCooldown(){
 function resendOtp(){
   if(otpInProgress) return;
   if(Date.now()-otpLastSentAt < OTP_RESEND_COOLDOWN_MS) return;
-  /* FIX: manual resend explicitly resets the "sent" guard — this is the
-     ONLY other place besides the first screen-entry that is allowed to
-     do so, satisfying "OTP sending must only be triggered manually". */
   otpSent=false;
   triggerSendOtp();
 }
@@ -1256,7 +1359,6 @@ async function submitOtp(){
     return;
   }
   try{
-    // read the freshest copy of the stored code/expiry
     let snap = await userRef.get();
     let d = snap.data();
 
@@ -1417,13 +1519,15 @@ function renderGameCard(){
   let g=document.getElementById("card");
   if(!g) return;
   g.innerHTML="";
+  let reqSet = currentRoundPattern ? currentRoundPattern.mask : [];
   card.forEach((n,i)=>{
     let d=document.createElement("div");
     let isCalled = n!=="FREE" && called.includes(n);
     d.className="cell"
       +(marked[i]?" marked":"")
       +(n==="FREE"?" free":"")
-      +(isCalled&&!marked[i]?" called-highlight":"");
+      +(isCalled&&!marked[i]?" called-highlight":"")
+      +(reqSet.includes(i)?" pattern-req":"");
     d.innerText=n;
     d.onclick=()=>{
       if(n==="FREE") return;
@@ -1433,6 +1537,7 @@ function renderGameCard(){
       db.collection("gameState").doc("current")
         .collection("players").doc(currentUser.uid)
         .update({marked}).catch(()=>{});
+      autoCheckWin();
     };
     g.appendChild(d);
   });
@@ -1461,12 +1566,27 @@ function setupHomeListeners(){
     document.getElementById("roundStatus").innerText=phase.toUpperCase();
     document.getElementById("activeCount").innerText=(d.activePlayers||[]).length;
     called=d.calledNumbers||[];
+    currentRoundPattern = d.pattern || null;
+    updatePatternBadges(d.pattern);
+
+    if(phase==="betting" && lastPhase!=="betting"){
+      hasClaimedThisRound=false;
+      inGame=false;
+      let eb=document.getElementById("enterBtn");
+      if(eb) eb.disabled=true;
+      let hm=document.getElementById("homeMsg");
+      if(hm) hm.innerText="";
+      closeWinnerOverlay();
+    }
+    lastPhase=phase;
 
     let bingoBtn=document.getElementById("bingoBtn");
     if(bingoBtn) bingoBtn.disabled = !(phase==="running" && inGame);
 
     document.getElementById("gamePhaseLabel").innerText=phase.toUpperCase();
     document.getElementById("calledCount").innerText=called.length+"/75";
+
+    maybeShowWinner(d);
 
     if(inGame && document.getElementById("game").classList.contains("active")){
       updateGameUI(d);
@@ -1514,6 +1634,154 @@ function updateGameUI(d){
     playLetterSound(lbl,last);
   }
   renderGameCard();
+  autoCheckWin();
+}
+
+/* ======================================================
+   PATTERN ENGINE
+   ====================================================== */
+function maskFromRows(rows){
+  let idx=[];
+  rows.forEach((row,r)=>{
+    for(let c=0;c<5;c++) if(row[c]==='X') idx.push(r*5+c);
+  });
+  return idx;
+}
+const ROWIDX = r => [0,1,2,3,4].map(c=>r*5+c);
+const COLIDX = c => [0,1,2,3,4].map(r=>r*5+c);
+
+const STATIC_PATTERNS = {
+  "Diagonal (Top-Left → Bottom-Right)": maskFromRows(["X....",".X...","..X..","...X.","....X"]),
+  "Diagonal (Top-Right → Bottom-Left)": maskFromRows(["....X","...X.","..X..",".X...","X...."]),
+  "Four Corners": maskFromRows(["X...X",".....",".....",".....","X...X"]),
+  "X Pattern": maskFromRows(["X...X",".X.X.","..X..",".X.X.","X...X"]),
+  "Cross (+) Pattern": maskFromRows(["..X..","..X..","XXXXX","..X..","..X.."]),
+  "Full House (Cover All)": maskFromRows(["XXXXX","XXXXX","XXXXX","XXXXX","XXXXX"]),
+  "Blackout": maskFromRows(["XXXXX","XXXXX","XXXXX","XXXXX","XXXXX"]),
+  "Letter T": maskFromRows(["XXXXX","..X..","..X..","..X..","..X.."]),
+  "Letter L": maskFromRows(["X....","X....","X....","X....","XXXXX"]),
+  "Letter U": maskFromRows(["X...X","X...X","X...X","X...X","XXXXX"]),
+  "Letter H": maskFromRows(["X...X","X...X","XXXXX","X...X","X...X"]),
+  "Letter E": maskFromRows(["XXXXX","X....","XXXX.","X....","XXXXX"]),
+  "Letter C": maskFromRows([".XXXX","X....","X....","X....",".XXXX"]),
+  "Letter Z": maskFromRows(["XXXXX","....X","..X..",".X...","XXXXX"]),
+  "Letter N": maskFromRows(["X...X","XX..X","X.X.X","X..XX","X...X"]),
+  "Letter V": maskFromRows(["X...X","X...X",".X.X.",".X.X.","..X.."]),
+  "Letter Y": maskFromRows(["X...X",".X.X.","..X..","..X..","..X.."]),
+  "Diamond": maskFromRows(["..X..",".X.X.","X...X",".X.X.","..X.."]),
+  "Pyramid": maskFromRows(["..X..",".XXX.","XXXXX",".....","....."]),
+  "Arrow": maskFromRows(["..X..",".XXX.","X.X.X","..X..","..X.."]),
+  "Kite": maskFromRows(["..X..",".XXX.","XX.XX",".X.X.","..X.."]),
+  "Frame (Outside Border)": maskFromRows(["XXXXX","X...X","X...X","X...X","XXXXX"]),
+  "Inside Square": maskFromRows([".....",".XXX.",".X.X.",".XXX.","....."]),
+  "Center Square": maskFromRows([".....",".XXX.",".XXX.",".XXX.","....."]),
+  "Checkerboard": maskFromRows(["X.X.X",".X.X.","X.X.X",".X.X.","X.X.X"]),
+  "Small X": maskFromRows([".....",".X.X.","..X..",".X.X.","....."]),
+  "Large X": maskFromRows(["X...X",".X.X.","..X..",".X.X.","X...X"]),
+  "Top Row": ROWIDX(0),
+  "Bottom Row": ROWIDX(4),
+  "Left Column": COLIDX(0),
+  "Right Column": COLIDX(4),
+  "Center Cross": maskFromRows([".....","..X..",".XXX.","..X..","....."])
+};
+
+const BUILTIN_PATTERN_NAMES = [
+  "Horizontal Line","Vertical Line",
+  "Diagonal (Top-Left → Bottom-Right)","Diagonal (Top-Right → Bottom-Left)",
+  "Four Corners","X Pattern","Cross (+) Pattern","Full House (Cover All)","Blackout",
+  "Letter T","Letter L","Letter U","Letter H","Letter E","Letter C","Letter Z","Letter N","Letter V","Letter Y",
+  "Diamond","Pyramid","Arrow","Kite","Frame (Outside Border)","Inside Square","Center Square",
+  "Checkerboard","Small X","Large X","Top Row","Bottom Row","Left Column","Right Column","Center Cross",
+  "Crazy Bingo (Random Shape)"
+];
+
+function instantiatePattern(name){
+  if(name==="Horizontal Line"){
+    let r=Math.floor(Math.random()*5);
+    return {name:"Horizontal Line (Row "+(r+1)+")", mask:ROWIDX(r)};
+  }
+  if(name==="Vertical Line"){
+    let c=Math.floor(Math.random()*5);
+    return {name:"Vertical Line (Col "+(c+1)+")", mask:COLIDX(c)};
+  }
+  if(name==="Crazy Bingo (Random Shape)"){
+    let all=[...Array(25).keys()].filter(i=>i!==12);
+    all.sort(()=>Math.random()-0.5);
+    return {name:"Crazy Bingo (Random Shape)", mask:[12,...all.slice(0,9)]};
+  }
+  if(STATIC_PATTERNS[name]) return {name, mask:STATIC_PATTERNS[name]};
+  return null;
+}
+
+async function pickPatternForRound(){
+  let forced=document.getElementById('forcePatternSelect')?.value;
+  if(forced){
+    if(BUILTIN_PATTERN_NAMES.includes(forced)) return instantiatePattern(forced);
+    let doc=await db.collection('patterns').doc(forced).get();
+    if(doc.exists) return {name:doc.data().name, mask:doc.data().mask};
+  }
+  let settingsSnap=await db.collection('meta').doc('patternSettings').get();
+  let disabled=settingsSnap.exists?(settingsSnap.data().disabledBuiltins||[]):[];
+  let pool=BUILTIN_PATTERN_NAMES.filter(n=>!disabled.includes(n));
+
+  let customSnap=await db.collection('patterns').where('enabled','==',true).get();
+  let customList=[]; customSnap.forEach(d=>customList.push({id:d.id,...d.data()}));
+
+  let total=pool.length+customList.length;
+  if(total===0) return instantiatePattern("Four Corners");
+  let r=Math.floor(Math.random()*total);
+  if(r<pool.length) return instantiatePattern(pool[r]);
+  let cp=customList[r-pool.length];
+  return {name:cp.name, mask:cp.mask};
+}
+
+function renderMiniGrid(mask,container){
+  if(!container) return;
+  container.innerHTML="";
+  for(let i=0;i<25;i++){
+    let d=document.createElement("div");
+    d.className="mini-cell"+(i===12?" free2":"")+((mask||[]).includes(i)?" req":"");
+    container.appendChild(d);
+  }
+}
+
+function updatePatternBadges(pattern){
+  ["home","game"].forEach(prefix=>{
+    let badge=document.getElementById(prefix+"PatternBadge");
+    let nameEl=document.getElementById(prefix+"PatternName");
+    let mini=document.getElementById(prefix+"PatternMini");
+    if(!badge) return;
+    if(!pattern){ badge.style.display="none"; return; }
+    badge.style.display="flex";
+    nameEl.innerText=pattern.name;
+    renderMiniGrid(pattern.mask,mini);
+  });
+}
+
+function checkWinAgainstPattern(){
+  if(!currentRoundPattern || !currentRoundPattern.mask || !currentRoundPattern.mask.length) return false;
+  return currentRoundPattern.mask.every(i=>marked[i]===true);
+}
+
+function autoCheckWin(){
+  if(hasClaimedThisRound) return;
+  if(!inGame) return;
+  if(checkWinAgainstPattern()){
+    hasClaimedThisRound=true;
+    claimBingo();
+  }
+}
+
+function patternPoints(name){
+  if(!name) return 25;
+  if(name.includes("Full House")||name.includes("Blackout")) return 100;
+  if(name.includes("Crazy")||name.includes("Letter")||name.includes("Diamond")||
+     name.includes("Pyramid")||name.includes("Kite")||name.includes("Arrow")) return 60;
+  if(name.includes("X Pattern")||name.includes("Large X")||name.includes("Cross")||
+     name.includes("Frame")||name.includes("Checkerboard")) return 50;
+  if(name.includes("Four Corners")||name.includes("Small X")||name.includes("Center")||
+     name.includes("Inside Square")) return 35;
+  return 25; // lines, rows, columns, diagonals
 }
 
 /* ======================================================
@@ -1570,6 +1838,7 @@ async function joinGame(){
   await userRef.update({roundsPlayed:firebase.firestore.FieldValue.increment(1)});
 
   inGame=true;
+  hasClaimedThisRound=false;
   document.getElementById("enterBtn").disabled=false;
   document.getElementById("homeMsg").innerText="Joined! Tap ENTER GAME when ready.";
   toast("Joined! Good luck 🍀","green");
@@ -1590,66 +1859,56 @@ function backHome(){
 }
 
 /* ======================================================
-   BINGO CLAIM
+   BINGO CLAIM — validated locally, verified atomically
+   via a Firestore transaction so only the first valid
+   winner per round can lock in the win (no manual admin
+   approval needed).
    ====================================================== */
 async function claimBingo(){
-  let result=checkWin();
-  if(!result){
-    toast("Not a valid bingo yet!","red");
-    document.getElementById("resultMsg").innerText="No valid pattern yet. Keep going!";
+  if(!checkWinAgainstPattern()){
+    toast("Not a valid "+(currentRoundPattern?currentRoundPattern.name:"pattern")+" yet!","red");
+    hasClaimedThisRound=false;
     return;
   }
-  await db.collection("gameState").doc("current").collection("winClaims").add({
-    uid:currentUser.uid,
-    name:userData.name,
-    type:result,
-    cartela:card,
-    marked:marked,
-    called:called,
-    verified:false,
-    time:firebase.firestore.FieldValue.serverTimestamp()
-  });
-  document.getElementById("resultMsg").innerText=
-    "🎉 "+result+" claimed! Waiting for admin verification...";
-  document.getElementById("bingoBtn").disabled=true;
-}
+  let resultEl=document.getElementById("resultMsg");
+  if(resultEl) resultEl.innerText="Verifying...";
+  let bingoBtn=document.getElementById("bingoBtn");
+  if(bingoBtn) bingoBtn.disabled=true;
 
-/* Patterns: 1 LINE / FOUR CORNERS / 2 LINE / X PATTERN / FULL BINGO */
-function checkWin(){
-  let valid=card.every((n,i)=>{
-    if(!marked[i]) return true;
-    return n==="FREE"||called.includes(n);
-  });
-  if(!valid) return false;
+  try{
+    let gsRef=db.collection("gameState").doc("current");
+    let won=false;
+    await db.runTransaction(async t=>{
+      let snap=await t.get(gsRef);
+      let d=snap.data();
+      if(!d || d.winnerUid){ return; }
+      t.update(gsRef,{
+        winnerUid:currentUser.uid,
+        winnerName:userData.name,
+        winnerType:currentRoundPattern.name,
+        phase:"winner",
+        winnerTime:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      won=true;
+    });
 
-  let g=[];
-  for(let r=0;r<5;r++) g.push(marked.slice(r*5,r*5+5));
+    if(!won){
+      if(resultEl) resultEl.innerText="Someone already won this round!";
+      toast("Too late — already won!","red");
+      return;
+    }
 
-  let lines=0;
-  for(let r=0;r<5;r++) if(g[r].every(x=>x)) lines++;
-  for(let c=0;c<5;c++){
-    let ok=true;
-    for(let r=0;r<5;r++) if(!g[r][c]) ok=false;
-    if(ok) lines++;
+    await gsRef.collection("winClaims").add({
+      uid:currentUser.uid,name:userData.name,type:currentRoundPattern.name,
+      cartela:card,marked:marked,called:called,verified:true,
+      time:firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    if(resultEl) resultEl.innerText="🎉 "+currentRoundPattern.name+" verified! You won!";
+  }catch(e){
+    if(resultEl) resultEl.innerText="Error verifying win. Try again.";
+    hasClaimedThisRound=false;
   }
-
-  let d1=true,d2=true;
-  for(let i=0;i<5;i++){
-    if(!g[i][i]) d1=false;
-    if(!g[i][4-i]) d2=false;
-  }
-  if(d1) lines++;
-  if(d2) lines++;
-
-  let fourCorners = marked[0]&&marked[4]&&marked[20]&&marked[24];
-  let xPattern    = d1 && d2;
-
-  if(marked.every(x=>x)) return "FULL_BINGO";
-  if(xPattern)            return "X_PATTERN";
-  if(lines>=2)             return "2_LINE";
-  if(fourCorners)          return "FOUR_CORNERS";
-  if(lines>=1)             return "1_LINE";
-  return false;
 }
 
 /* ======================================================
@@ -1713,6 +1972,59 @@ function playWinSound(){
       o.stop(ctx.currentTime+i*0.12+0.3);
     });
   }catch(e){}
+}
+
+/* ======================================================
+   WINNER OVERLAY + CONFETTI
+   ====================================================== */
+function maybeShowWinner(d){
+  if(d.winnerUid && d.winnerUid!==lastSeenWinnerUid){
+    lastSeenWinnerUid=d.winnerUid;
+    showWinnerOverlay(d);
+  }
+  if(!d.winnerUid) lastSeenWinnerUid=null;
+}
+
+function showWinnerOverlay(d){
+  document.getElementById("winnerNameEl").innerText =
+    (currentUser && d.winnerUid===currentUser.uid) ? "🎉 YOU WON!" : (d.winnerName||"Winner");
+  document.getElementById("winnerTypeEl").innerText = d.winnerType||"";
+  document.getElementById("winnerPtsEl").innerText = "+"+patternPoints(d.winnerType)+" pts";
+  document.getElementById("winnerOverlay").classList.add("show");
+  launchConfetti();
+  playWinSound();
+  setTimeout(closeWinnerOverlay,6000);
+}
+
+function closeWinnerOverlay(){
+  document.getElementById("winnerOverlay").classList.remove("show");
+}
+
+function launchConfetti(){
+  let canvas=document.getElementById("confettiCanvas");
+  if(!canvas) return;
+  canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+  let ctx=canvas.getContext("2d");
+  let pieces=Array.from({length:120},()=>({
+    x:Math.random()*canvas.width, y:-20-Math.random()*200,
+    vy:2+Math.random()*4, vx:-2+Math.random()*4,
+    size:4+Math.random()*6,
+    color:["#facc15","#22c55e","#3b82f6","#a855f7","#ef4444"][Math.floor(Math.random()*5)],
+    rot:Math.random()*360, vr:-6+Math.random()*12
+  }));
+  let start=Date.now();
+  function frame(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pieces.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle=p.color; ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+      ctx.restore();
+    });
+    if(Date.now()-start<4000) requestAnimationFrame(frame);
+    else ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+  frame();
 }
 
 /* ======================================================
@@ -1935,12 +2247,14 @@ function showAdminTab(id,btn){
   document.querySelectorAll(".admin-tab").forEach(b=>b.classList.remove("on"));
   document.getElementById(id).classList.add("on");
   if(btn) btn.classList.add("on");
-  if(id==="tabRound") loadWinClaims();
+  if(id==="tabRound"){ loadRecentWinners(); refreshPatternList(); }
+  if(id==="tabPatterns"){ loadPatternManagement(); }
 }
 
 function setupAdminPanel(){
   loadRequests();
   setupAdminDashboard();
+  refreshPatternList();
 }
 
 /* ---- DASHBOARD ---- */
@@ -1952,6 +2266,12 @@ function setupAdminDashboard(){
   db.collection("gameState").doc("current").onSnapshot(snap=>{
     if(!snap.exists) return;
     let d=snap.data();
+    liveWinnerUid = d.winnerUid || null;
+    if(d.winnerUid && roundInterval){
+      clearInterval(roundInterval);
+      roundInterval=null;
+    }
+
     let dp=document.getElementById("dashPhase");
     if(dp){
       dp.innerText=(d.phase||"-").toUpperCase();
@@ -1959,6 +2279,12 @@ function setupAdminDashboard(){
     }
     let da=document.getElementById("dashActive");
     if(da) da.innerText=(d.activePlayers||[]).length;
+
+    let dpn=document.getElementById("dashPatternName");
+    if(dpn) dpn.innerText = d.pattern ? d.pattern.name : "-";
+
+    maybeShowWinner(d);
+    if(d.winnerUid) awardWinner(d);
   });
   db.collection("meta").doc("stats").onSnapshot(snap=>{
     if(!snap.exists) return;
@@ -2060,32 +2386,43 @@ async function logTransaction(uid,type,amount){
   });
 }
 
-/* ---- ROUND CONTROL ---- */
+/* ======================================================
+   ROUND CONTROL — full auto game engine
+   ====================================================== */
 async function adminStartRound(){
   if(roundInterval) clearInterval(roundInterval);
-  if(bettingTimer)  clearInterval(bettingTimer);
+  if(bettingTimer)  clearTimeout(bettingTimer);
 
+  let pattern = await pickPatternForRound();
   let roundId="round_"+Date.now();
+
+  payoutProcessed=false;
+  liveWinnerUid=null;
+
   await db.collection("gameState").doc("current").set({
-    roundId,phase:"betting",activePlayers:[],calledNumbers:[]
+    roundId,phase:"betting",activePlayers:[],calledNumbers:[],
+    pattern,
+    winnerUid:null,winnerName:null,winnerType:null,winnerTime:null
   });
 
   await db.collection("meta").doc("stats").set({
     totalRounds:firebase.firestore.FieldValue.increment(1)
   },{merge:true});
 
-  document.getElementById("roundMsg").innerText="Betting phase started (30s)...";
+  document.getElementById("roundMsg").innerText=
+    "Pattern: "+pattern.name+" — betting phase started (30s)...";
+  toast("🎯 Pattern: "+pattern.name,"green");
   playBettingMusic();
 
   countdownVal=30;
   bettingTimer=setInterval(async()=>{
     countdownVal--;
-    document.getElementById("homeCountdown").innerText=countdownVal+"s";
-    document.getElementById("gameCountdown").innerText=countdownVal+"s";
+    let hc=document.getElementById("homeCountdown"); if(hc) hc.innerText=countdownVal+"s";
+    let gc=document.getElementById("gameCountdown"); if(gc) gc.innerText=countdownVal+"s";
     if(countdownVal<=0){
       clearInterval(bettingTimer);
-      document.getElementById("homeCountdown").innerText="";
-      document.getElementById("gameCountdown").innerText="";
+      let hc2=document.getElementById("homeCountdown"); if(hc2) hc2.innerText="";
+      let gc2=document.getElementById("gameCountdown"); if(gc2) gc2.innerText="";
       document.getElementById("roundMsg").innerText="Calling numbers...";
       await runNumbers();
     }
@@ -2094,7 +2431,7 @@ async function adminStartRound(){
 
 async function adminStopRound(){
   if(roundInterval) clearInterval(roundInterval);
-  if(bettingTimer)  clearInterval(bettingTimer);
+  if(bettingTimer)  clearTimeout(bettingTimer);
   await db.collection("gameState").doc("current").update({phase:"rest"});
   document.getElementById("roundMsg").innerText="Round stopped.";
 }
@@ -2104,101 +2441,192 @@ async function runNumbers(){
   let pool=Array.from({length:75},(_,i)=>i+1).sort(()=>Math.random()-0.5);
   let sofar=[];
   let i=0;
+  let CALL_INTERVAL_MS=(parseFloat(document.getElementById('callIntervalInput')?.value)||3)*1000;
+
   roundInterval=setInterval(async()=>{
+    if(liveWinnerUid){
+      clearInterval(roundInterval);
+      roundInterval=null;
+      return;
+    }
     if(i>=pool.length){
       clearInterval(roundInterval);
+      roundInterval=null;
       await db.collection("gameState").doc("current").update({phase:"rest"});
-      document.getElementById("roundMsg").innerText="Round complete. 30s rest...";
-      bettingTimer=setTimeout(()=>adminStartRound(),30000);
+      document.getElementById("roundMsg").innerText="No winner this round. Next round in 15s...";
+      scheduleNextRound(15000);
       return;
     }
     sofar.push(pool[i]);
     await db.collection("gameState").doc("current").update({calledNumbers:[...sofar]});
     i++;
-  },2000);
+  },CALL_INTERVAL_MS);
 }
 
-/* ---- WIN CLAIMS ---- */
-function loadWinClaims(){
-  db.collection("gameState").doc("current").collection("winClaims")
-    .orderBy("time","desc")
+function scheduleNextRound(ms){
+  if(bettingTimer) clearTimeout(bettingTimer);
+  bettingTimer=setTimeout(()=>adminStartRound(),ms);
+}
+
+/* ---- WINNER PAYOUT (fires once, on the admin instance that detects the win) ---- */
+async function awardWinner(d){
+  if(payoutProcessed) return;
+  payoutProcessed=true;
+  if(roundInterval){ clearInterval(roundInterval); roundInterval=null; }
+
+  let pts=patternPoints(d.winnerType);
+
+  await db.collection("users").doc(d.winnerUid).update({
+    balance:firebase.firestore.FieldValue.increment(pts),
+    totalWins:firebase.firestore.FieldValue.increment(1)
+  });
+
+  await db.collection("meta").doc("stats").set({
+    lastWinner:d.winnerName,lastWinType:d.winnerType
+  },{merge:true});
+
+  await db.collection("winners").add({
+    uid:d.winnerUid,name:d.winnerName,type:d.winnerType,prize:pts,
+    time:firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  let histSnap=await db.collection("users").doc(d.winnerUid)
+    .collection("history").orderBy("time","desc").limit(1).get();
+  if(!histSnap.empty){
+    await histSnap.docs[0].ref.update({
+      won:true,result:d.winnerType,pointsEarned:pts,
+      calledCount:(d.calledNumbers||[]).length
+    });
+  }
+
+  document.getElementById("roundMsg").innerText=
+    "Winner: "+d.winnerName+" ("+d.winnerType+")! Next round in 15s...";
+  scheduleNextRound(15000);
+}
+
+/* ---- RECENT WINNERS (audit log, read-only — win is auto-verified now) ---- */
+function loadRecentWinners(){
+  db.collection("winners").orderBy("time","desc").limit(10)
     .onSnapshot(snap=>{
       let box=document.getElementById("winClaimsList");
       if(!box) return;
-      box.innerHTML=snap.empty
-        ? "<p style='color:#64748b;font-size:13px;'>No claims yet.</p>":
-          "";
+      if(snap.empty){ box.innerHTML="<p style='color:#64748b;font-size:13px;'>No winners yet.</p>"; return; }
+      box.innerHTML="";
       snap.forEach(doc=>{
         let c=doc.data();
         let div=document.createElement("div");
         div.style.cssText="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px;margin:8px 0;";
         div.innerHTML=`
           <div style="font-weight:bold;font-size:15px;">${c.name||""}</div>
-          <div style="font-size:12px;color:#94a3b8;margin:4px 0;">
-            Type: <strong style="color:#facc15;">${c.type}</strong> ·
-            Verified: ${c.verified?"<span style='color:#22c55e;'>✅ YES</span>":"<span style='color:#ef4444;'>⏳ NO</span>"}
-          </div>
-          ${!c.verified?`
-          <div style="display:flex;gap:6px;margin-top:8px;">
-            <button class="btn btn-green btn-small"
-              onclick="verifyClaim('${doc.id}','${c.uid}','${c.type}','${c.name||""}')">
-              ✓ VERIFY WIN
-            </button>
-            <button class="btn btn-red btn-small"
-              onclick="rejectClaim('${doc.id}')">
-              ✕ REJECT
-            </button>
-          </div>`:""}
-        `;
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px;">
+            Pattern: <strong style="color:#facc15;">${c.type||""}</strong> · +${c.prize||0} pts
+          </div>`;
         box.appendChild(div);
       });
     });
 }
 
-async function verifyClaim(claimId,uid,type,name){
-  await db.collection("gameState").doc("current")
-    .collection("winClaims").doc(claimId).update({verified:true});
-  await db.collection("gameState").doc("current").update({phase:"rest"});
-
-  let pts = type==="FULL_BINGO" ? 100
-          : type==="X_PATTERN"  ? 60
-          : type==="2_LINE"     ? 50
-          : type==="FOUR_CORNERS" ? 25
-          : 25; // 1_LINE
-
-  await db.collection("users").doc(uid).update({
-    balance:firebase.firestore.FieldValue.increment(pts),
-    totalWins:firebase.firestore.FieldValue.increment(1)
-  });
-
-  await db.collection("meta").doc("stats").set({
-    lastWinner:name,lastWinType:type
-  },{merge:true});
-
-  await db.collection("winners").add({
-    uid,name,type,prize:pts,
-    time:firebase.firestore.FieldValue.serverTimestamp()
-  });
-
-  let histSnap=await db.collection("users").doc(uid)
-    .collection("history").orderBy("time","desc").limit(1).get();
-  if(!histSnap.empty){
-    await histSnap.docs[0].ref.update({
-      won:true,result:type,pointsEarned:pts,
-      calledCount:(await db.collection("gameState").doc("current").get())
-        .data()?.calledNumbers?.length||0
-    });
-  }
-
-  playWinSound();
-  toast("Winner confirmed: "+name+" ("+type+") +"+pts+" pts","green");
-  document.getElementById("roundMsg").innerText="Winner confirmed! 30s rest...";
+/* ======================================================
+   PATTERN MANAGEMENT (ADMIN)
+   ====================================================== */
+function loadPatternManagement(){
+  renderPatternEditorGrid();
+  refreshPatternList();
 }
 
-async function rejectClaim(claimId){
-  await db.collection("gameState").doc("current")
-    .collection("winClaims").doc(claimId).update({verified:false,rejected:true});
-  toast("Claim rejected","red");
+function renderPatternEditorGrid(){
+  let g=document.getElementById("patternEditorGrid");
+  if(!g) return;
+  g.innerHTML="";
+  for(let i=0;i<25;i++){
+    let d=document.createElement("div");
+    d.className="pattern-editor-cell"+(editingMask.includes(i)?" on":"")+(i===12?" free2":"");
+    if(i!==12){
+      d.onclick=()=>{
+        let idx=editingMask.indexOf(i);
+        if(idx>=0) editingMask.splice(idx,1); else editingMask.push(i);
+        renderPatternEditorGrid();
+      };
+    }
+    g.appendChild(d);
+  }
+}
+
+async function saveCustomPattern(){
+  let name=document.getElementById("customPatternName").value.trim();
+  let msg=document.getElementById("customPatternMsg");
+  if(!name){ msg.style.color="#ef4444"; msg.innerText="Enter a pattern name."; return; }
+  if(editingMask.length<2){ msg.style.color="#ef4444"; msg.innerText="Select at least one required cell."; return; }
+  await db.collection("patterns").add({
+    name, mask:editingMask, enabled:true,
+    createdBy:currentUser.email,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  msg.style.color="#22c55e"; msg.innerText="Saved!";
+  document.getElementById("customPatternName").value="";
+  editingMask=[12];
+  renderPatternEditorGrid();
+  refreshPatternList();
+}
+
+async function refreshPatternList(){
+  let box=document.getElementById("patternList");
+  let sel=document.getElementById("forcePatternSelect");
+  if(sel) sel.innerHTML="<option value=''>-- Random enabled pattern --</option>";
+  if(!box) { /* still refresh dropdown if list panel not open */ }
+
+  let settingsRef=db.collection("meta").doc("patternSettings");
+  let settingsSnap=await settingsRef.get();
+  let disabled=settingsSnap.exists?(settingsSnap.data().disabledBuiltins||[]):[];
+
+  if(box) box.innerHTML="";
+
+  BUILTIN_PATTERN_NAMES.forEach(name=>{
+    let on=!disabled.includes(name);
+    if(box){
+      let row=document.createElement("div");
+      row.className="pattern-list-row";
+      row.innerHTML=`<span>${name}</span>`;
+      let t=document.createElement("div");
+      t.className="pattern-toggle"+(on?" on":"");
+      t.onclick=async()=>{
+        let d2=(await settingsRef.get());
+        let dis=d2.exists?(d2.data().disabledBuiltins||[]):[];
+        if(dis.includes(name)) dis=dis.filter(n=>n!==name); else dis.push(name);
+        await settingsRef.set({disabledBuiltins:dis},{merge:true});
+        refreshPatternList();
+      };
+      row.appendChild(t);
+      box.appendChild(row);
+    }
+    if(sel && on){
+      let o=document.createElement("option"); o.value=name; o.innerText=name; sel.appendChild(o);
+    }
+  });
+
+  let customSnap=await db.collection("patterns").get();
+  customSnap.forEach(doc=>{
+    let p=doc.data();
+    if(box){
+      let row=document.createElement("div");
+      row.className="pattern-list-row";
+      row.innerHTML=`<span>${p.name} <span style="color:#64748b;font-size:11px;">(custom)</span></span>`;
+      let wrap=document.createElement("div");
+      wrap.style.cssText="display:flex;align-items:center;gap:8px;";
+      let t=document.createElement("div");
+      t.className="pattern-toggle"+(p.enabled?" on":"");
+      t.onclick=async()=>{ await doc.ref.update({enabled:!p.enabled}); refreshPatternList(); };
+      let del=document.createElement("button");
+      del.className="btn btn-red btn-small"; del.innerText="✕";
+      del.onclick=async()=>{ await doc.ref.delete(); refreshPatternList(); };
+      wrap.appendChild(t); wrap.appendChild(del);
+      row.appendChild(wrap);
+      box.appendChild(row);
+    }
+    if(sel && p.enabled){
+      let o=document.createElement("option"); o.value=doc.id; o.innerText=p.name+" (custom)"; sel.appendChild(o);
+    }
+  });
 }
 </script>
 </body>
