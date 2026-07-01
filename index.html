@@ -848,6 +848,2744 @@ input::placeholder{ color:#475569; }
       <button class="admin-tab" onclick="showAdminTab('tabPoints',this)">⭐ Points</button>
       <button class="admin-tab" onclick="showAdminTab('tabRound',this)">🎮 Round</button>
       <button class="admin-tab" onclick="showAdminTab('tabPatterns',this)">🧩 Patterns</button>
+      <!-- Owner-only tab: hidden by default, revealed in JS only when isOwner is true -->
+      <button class="admin-tab" id="ownerTabBtn" style="display:none;" onclick="showAdminTab('tabOwner',this)">👑 Owner</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="tabDash" class="tab-panel on">
+      <h3 style="margin-bottom:12px;">Live Dashboard</h3>
+      <div class="dash-grid">
+        <div class="dash-card">
+          <div class="dash-num" id="dashOnline">0</div>
+          <div class="dash-label">Online Now</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-num" id="dashTotal">0</div>
+          <div class="dash-label">Total Users</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-num" id="dashActive">0</div>
+          <div class="dash-label">Active Players</div>
+        </div>
+        <div class="dash-card">
+          <div class="dash-num" id="dashRounds">0</div>
+          <div class="dash-label">Rounds Played</div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <strong>Current Phase</strong>
+          <span id="dashPhase" class="pill pill-pending">-</span>
+        </div>
+        <div style="font-size:13px;color:#94a3b8;">Pattern: <span id="dashPatternName" style="color:#facc15;font-weight:bold;">-</span></div>
+        <div style="font-size:13px;color:#94a3b8;margin-top:4px;" id="dashLastWin">No recent winners</div>
+        <div style="font-size:12px;color:#64748b;margin-top:6px;" id="dashEngineStatus">Engine: monitoring…</div>
+      </div>
+    </div>
+
+    <!-- REQUESTS -->
+    <div id="tabRequests" class="tab-panel">
+      <h3 style="margin-bottom:10px;">Access Requests</h3>
+      <div id="requestsList"><p style="color:#64748b;">Loading...</p></div>
+    </div>
+
+    <!-- POINTS -->
+    <div id="tabPoints" class="tab-panel">
+      <h3 style="margin-bottom:12px;">Assign Points (Deposit / Withdraw)</h3>
+      <div class="card">
+        <div class="input-group">
+          <label>Player Email</label>
+          <input type="email" id="pointsEmail" placeholder="player@email.com">
+        </div>
+        <div class="input-group">
+          <label>Amount</label>
+          <input type="number" id="pointsAmount" placeholder="e.g. 100">
+        </div>
+        <button class="btn btn-green" onclick="setBalance()">SET BALANCE</button>
+        <button class="btn btn-purple" onclick="addBalance()">ADD POINTS (DEPOSIT)</button>
+        <button class="btn btn-red" onclick="removeBalance()">REMOVE POINTS (WITHDRAW)</button>
+        <p id="pointsMsg" style="font-size:13px;margin-top:8px;color:#22c55e;"></p>
+      </div>
+    </div>
+
+    <!-- ROUND CONTROL -->
+    <div id="tabRound" class="tab-panel">
+      <h3 style="margin-bottom:12px;">Game Control</h3>
+      <div class="card">
+        <p style="color:#94a3b8;font-size:13px;margin-bottom:14px;">
+          Start a new 30-second betting phase. A winning pattern is picked automatically
+          (or force one below), then numbers call automatically at the interval you set.
+          The engine also auto-resumes on its own (see Owner/Dashboard notes) if it stalls.
+        </p>
+        <div class="input-group">
+          <label>Force Pattern (optional — leave blank for random)</label>
+          <select id="forcePatternSelect"><option value="">-- Random enabled pattern --</option></select>
+        </div>
+        <div class="input-group">
+          <label>Number Call Interval (seconds)</label>
+          <input type="number" id="callIntervalInput" value="3" min="2" max="10">
+        </div>
+        <button class="btn btn-yellow" onclick="adminStartRound()">▶ START NEW ROUND</button>
+        <button class="btn btn-red" style="margin-top:6px;" onclick="adminStopRound()">⏹ STOP ROUND (pause auto-restart)</button>
+        <p id="roundMsg" style="font-size:13px;margin-top:8px;color:#22c55e;"></p>
+      </div>
+      <h4 style="margin:16px 0 8px;">Recent Winners</h4>
+      <div id="winClaimsList"></div>
+    </div>
+
+    <!-- PATTERNS -->
+    <div id="tabPatterns" class="tab-panel">
+      <h3 style="margin-bottom:12px;">Winning Patterns</h3>
+      <div class="card">
+        <p style="color:#94a3b8;font-size:13px;margin-bottom:10px;">Toggle which patterns can be randomly selected each round.</p>
+        <div id="patternList"><p style="color:#64748b;">Loading...</p></div>
+      </div>
+      <h4 style="margin:18px 0 8px;">Create Custom Pattern</h4>
+      <div class="card">
+        <div class="input-group">
+          <label>Pattern Name</label>
+          <input type="text" id="customPatternName" placeholder="e.g. My Special Shape">
+        </div>
+        <p style="font-size:12px;color:#64748b;margin:8px 0;">Tap cells to build the required shape (center is always FREE):</p>
+        <div class="pattern-editor-grid" id="patternEditorGrid"></div>
+        <button class="btn btn-purple" onclick="saveCustomPattern()">💾 SAVE CUSTOM PATTERN</button>
+        <p id="customPatternMsg" style="font-size:13px;margin-top:8px;color:#22c55e;"></p>
+      </div>
+    </div>
+
+    <!-- OWNER (visible only to the Owner account) -->
+    <div id="tabOwner" class="tab-panel">
+      <h3 style="margin-bottom:12px;">👑 Owner Controls</h3>
+      <div class="card">
+        <p style="color:#94a3b8;font-size:13px;margin-bottom:10px;">
+          Add an admin by their Gmail. They must have already signed up at least once
+          (so their account exists in the database) before you can promote them.
+        </p>
+        <div class="input-group">
+          <label>Admin's Gmail Address</label>
+          <input type="email" id="newAdminEmail" placeholder="admin@gmail.com">
+        </div>
+        <button class="btn btn-green" onclick="makeAdmin()">➕ ADD ADMIN</button>
+        <p id="ownerMsg" style="font-size:13px;margin-top:8px;color:#22c55e;"></p>
+      </div>
+      <h4 style="margin:18px 0 8px;">Current Admins &amp; Owner</h4>
+      <div id="adminsList"><p style="color:#64748b;">Loading...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FLOATING CHAT BUTTON ===== -->
+<button class="chat-fab" id="chatFab" style="display:none;" onclick="toggleChat()">
+  <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"
+       stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+  <div class="chat-badge" id="chatBadge" style="display:none;">!</div>
+</button>
+
+<!-- ===== CHAT DRAWER ===== -->
+<div class="chat-drawer" id="chatDrawer">
+  <div class="chat-drawer-header">
+    <div class="chat-drawer-title">💬 Chat</div>
+    <button class="chat-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-tabs-row">
+    <button class="chat-tab on" id="ctabSupport" onclick="switchChatTab('support')">Support</button>
+    <button class="chat-tab" id="ctabAdminRoom" onclick="switchChatTab('adminroom')" style="display:none;">Admin Room</button>
+  </div>
+
+  <!-- SUPPORT -->
+  <div id="chatSupport" class="chat-messages on" style="flex-direction:column;">
+    <div id="adminUserSelectWrap" class="chat-user-select" style="display:none;">
+      <select id="adminUserSelect" onchange="openUserThread()">
+        <option value="">-- select user --</option>
+      </select>
+    </div>
+    <div class="chat-body" id="supportMessages"></div>
+    <input type="file" id="photoFileInput" accept="image/*" style="display:none;" onchange="sendPhotoMsg()">
+    <div class="chat-input-row">
+      <button class="chat-photo-btn" onclick="document.getElementById('photoFileInput').click()">📷</button>
+      <input type="text" id="supportInput" placeholder="Type a message..."
+             onkeydown="if(event.key==='Enter') sendSupportMsg()">
+      <button class="chat-send-btn" onclick="sendSupportMsg()">➤</button>
+    </div>
+  </div>
+
+  <!-- ADMIN ROOM -->
+  <div id="chatAdminRoom" class="chat-messages" style="flex-direction:column;">
+    <div class="chat-body" id="adminRoomMessages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="adminRoomInput" placeholder="Message all admins..."
+             onkeydown="if(event.key==='Enter') sendAdminRoomMsg()">
+      <button class="chat-send-btn" onclick="sendAdminRoomMsg()">➤</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======================================================
+   FIREBASE INIT
+   ====================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDX-pa6aYoRLAM9oODEZMgLnLiyn8jj-m8",
+  authDomain: "abi-net.firebaseapp.com",
+  projectId: "abi-net",
+  storageBucket: "abi-net.firebasestorage.app",
+  messagingSenderId: "962956606571",
+  appId: "1:962956606571:web:dad08fd516543b010a052e",
+  measurementId: "G-GGZZ8CTPMT"
+};
+firebase.initializeApp(firebaseConfig);
+const auth      = firebase.auth();
+const db        = firebase.firestore();
+const storage   = firebase.storage();
+
+/* ======================================================
+   EMAILJS INIT — OTP EMAILS
+   ====================================================== */
+const EMAILJS_SERVICE_ID  = "service_7vygy1i";
+const EMAILJS_TEMPLATE_ID = "template_jcmcvhs";
+const EMAILJS_PUBLIC_KEY  = "lJiDKgWFkw9-4rOim";
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
+const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_RESEND_COOLDOWN_MS = 30 * 1000; // 30 seconds
+let otpLastSentAt = 0;
+
+function generateOtpCode(){
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+/* ======================================================
+   OWNER / ADMIN ROLE SYSTEM
+   ------------------------------------------------------
+   - OWNER_EMAIL is the single hardcoded "super admin" — put
+     YOUR Gmail here. This account is always the owner no
+     matter what is in Firestore.
+   - Everyone else's admin status now comes from a `role`
+     field on their user document: "owner" | "admin" | "player".
+   - The Owner (and only the Owner) can promote/demote admins
+     from the Owner tab in the admin panel — regular admins and
+     players never see that tab or those controls.
+   ====================================================== */
+const OWNER_EMAIL = "you@gmail.com"; // <-- put YOUR Gmail here
+const isOwnerEmail = e =>
+  e && e.toLowerCase() === OWNER_EMAIL.toLowerCase();
+
+/* ======================================================
+   STATE
+   ====================================================== */
+let currentUser      = null;
+let isAdmin          = false;
+let isOwner          = false;
+let userData         = null;
+let userRef          = null;
+let card             = [];
+let marked           = [];
+let called           = [];
+let inGame           = false;
+let unsubThread      = null;
+let unsubRound       = null;
+let currentThreadUid = null;
+let roundInterval    = null;
+let bettingTimer     = null;
+let countdownVal     = 0;
+
+/* ---- OTP GUARDS ---- */
+let otpSent          = false;
+let otpInProgress     = false;
+let otpScreenEntered = false;
+
+/* ---- PATTERN / WIN ENGINE STATE ---- */
+let currentRoundPattern = null;   // {name, mask:[indices]}
+let hasClaimedThisRound = false;
+let payoutProcessed     = false;
+let liveWinnerUid       = null;
+let lastSeenWinnerUid   = null;
+let lastPhase           = null;
+let editingMask          = [12];
+
+/* ---- ENGINE AUTO-START / WATCHDOG STATE ---- */
+let watchdogInterval        = null; // checks every 8s if the engine is stalled
+let engineHeartbeatInterval = null; // pings Firestore every 5s while this tab drives the engine
+
+/* ======================================================
+   SCREEN SWITCH (with slide transition)
+   ====================================================== */
+function show(id){
+  document.querySelectorAll(".screen").forEach(s=>{
+    if(s.id!==id) s.classList.remove("active");
+  });
+  document.getElementById(id).classList.add("active");
+}
+
+/* ======================================================
+   AUTH TABS
+   ====================================================== */
+function switchAuthTab(tab){
+  document.getElementById("loginForm").style.display  = tab==="login"  ? "block":"none";
+  document.getElementById("signupForm").style.display = tab==="signup" ? "block":"none";
+  document.querySelectorAll(".tab-btn").forEach((b,i)=>{
+    b.classList.toggle("on",(tab==="login"&&i===0)||(tab==="signup"&&i===1));
+  });
+}
+
+/* ======================================================
+   EMAIL SIGNUP
+   ====================================================== */
+async function emailSignup(){
+  let first = document.getElementById("signupFirst").value.trim();
+  let last  = document.getElementById("signupLast").value.trim();
+  let dob   = document.getElementById("signupDob").value;
+  let email = document.getElementById("signupEmail").value.trim();
+  let pass  = document.getElementById("signupPassword").value;
+  let errEl = document.getElementById("signupError");
+  errEl.innerText="";
+  if(!first||!last||!dob||!email||!pass){
+    errEl.innerText="Please fill in all fields."; return;
+  }
+  try{
+    let cred = await auth.createUserWithEmailAndPassword(email,pass);
+    await cred.user.updateProfile({displayName:first+" "+last});
+    await createUserDoc(cred.user,{firstName:first,lastName:last,dob});
+  }catch(e){ errEl.innerText=e.message; }
+}
+
+/* ======================================================
+   EMAIL LOGIN
+   ====================================================== */
+async function emailLogin(){
+  let email = document.getElementById("loginEmail").value.trim();
+  let pass  = document.getElementById("loginPassword").value;
+  let errEl = document.getElementById("loginError");
+  errEl.innerText="";
+  if(!email||!pass){ errEl.innerText="Enter email and password."; return; }
+  try{
+    await auth.signInWithEmailAndPassword(email,pass);
+  }catch(e){ errEl.innerText=e.message; }
+}
+
+/* ======================================================
+   GOOGLE LOGIN
+   ====================================================== */
+async function googleLogin(){
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try{
+    await auth.signInWithPopup(provider);
+  }catch(e){
+    document.getElementById("loginError").innerText  = e.message;
+    document.getElementById("signupError").innerText = e.message;
+  }
+}
+
+function logout(){
+  if(roundInterval) clearInterval(roundInterval);
+  if(bettingTimer)  clearTimeout(bettingTimer);
+  if(watchdogInterval){ clearInterval(watchdogInterval); watchdogInterval=null; }
+  if(engineHeartbeatInterval){ clearInterval(engineHeartbeatInterval); engineHeartbeatInterval=null; }
+  if(unsubThread)   unsubThread();
+  if(unsubRound)    unsubRound();
+  if(currentUser)
+    db.collection("presence").doc(currentUser.uid).delete().catch(()=>{});
+  otpSent=false;
+  otpInProgress=false;
+  otpScreenEntered=false;
+  otpLastSentAt=0;
+  auth.signOut();
+}
+
+/* ======================================================
+   AUTH STATE
+   ====================================================== */
+auth.onAuthStateChanged(async user=>{
+  if(!user){
+    currentUser=null;
+    document.getElementById("chatFab").style.display="none";
+    show("welcome");
+    return;
+  }
+  currentUser = user;
+  userRef     = db.collection("users").doc(user.uid);
+
+  let doc = await userRef.get();
+  if(!doc.exists){
+    await createUserDoc(user,{});
+    doc = await userRef.get();
+  } else {
+    await userRef.update({isOnline:true});
+  }
+  userData = doc.data();
+
+  // Bootstrap owner: the hardcoded OWNER_EMAIL always carries role "owner",
+  // even if their Firestore doc was created before this feature existed.
+  if(isOwnerEmail(user.email) && userData.role!=="owner"){
+    await userRef.update({role:"owner"});
+    userData.role="owner";
+  }
+  // Any legacy account without a role field defaults to "player".
+  if(!userData.role){
+    await userRef.update({role:"player"});
+    userData.role="player";
+  }
+
+  isOwner = userData.role==="owner";
+  isAdmin = isOwner || userData.role==="admin";
+
+  let lastOtpVerified   = userData.otpVerified;
+  let lastTermsAccepted = userData.termsAccepted;
+  let lastTutorialSeen  = userData.tutorialSeen;
+
+  userRef.onSnapshot(snap=>{
+    let prev = userData?.accessStatus;
+    userData = snap.data();
+    updateBalanceUI();
+    updateApprovalBanner();
+    loadMyWins();
+    if(prev==="pending" && userData.accessStatus==="approved"){
+      pushNotif("Access Approved ✓","An admin has approved your account. You can now place bets!");
+    }
+
+    let navChanged =
+      userData.otpVerified   !== lastOtpVerified   ||
+      userData.termsAccepted !== lastTermsAccepted ||
+      userData.tutorialSeen  !== lastTutorialSeen;
+
+    lastOtpVerified   = userData.otpVerified;
+    lastTermsAccepted = userData.termsAccepted;
+    lastTutorialSeen  = userData.tutorialSeen;
+
+    let activeId = document.querySelector(".screen.active")?.id;
+    if(navChanged && ["welcome","otpScreen","termsScreen","tutorial"].includes(activeId)){
+      routeByState();
+    }
+  });
+
+  document.getElementById("chatFab").style.display="flex";
+
+  if(isAdmin){
+    show("admin");
+    setupAdminPanel();
+    setupAdminChat();
+    return;
+  }
+
+  routeByState();
+});
+
+async function createUserDoc(user,extra){
+  let existing = await db.collection("users").doc(user.uid).get();
+  if(existing.exists) return;
+  await db.collection("users").doc(user.uid).set({
+    uid:user.uid,
+    email:user.email||"",
+    name:user.displayName||(extra.firstName+" "+extra.lastName)||user.email,
+    firstName:extra.firstName||"",
+    lastName:extra.lastName||"",
+    dob:extra.dob||"",
+    balance:0,
+    accessStatus:"pending",
+    role: isOwnerEmail(user.email) ? "owner" : "player",
+    otpVerified:false,
+    otpCode:null,
+    otpExpires:null,
+    termsAccepted:false,
+    tutorialSeen:false,
+    isOnline:true,
+    totalWins:0,
+    roundsPlayed:0,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+/* ======================================================
+   ROUTER — decides which pre-game screen to show:
+   OTP -> Terms -> Tutorial -> Home
+   ====================================================== */
+function routeByState(){
+  if(!userData) return;
+  if(isAdmin) return;
+
+  if(!userData.otpVerified){
+    show("otpScreen");
+    document.getElementById("otpEmailLabel").innerText = currentUser.email;
+    if(!otpScreenEntered){
+      otpScreenEntered = true;
+      triggerSendOtp();
+    }
+    return;
+  }
+  if(!userData.termsAccepted){
+    show("termsScreen");
+    return;
+  }
+  if(!userData.tutorialSeen){
+    show("tutorial");
+    return;
+  }
+  routeUser();
+}
+
+function routeUser(){
+  show("home");
+  document.getElementById("username").innerText = userData.name||"";
+  updateBalanceUI();
+  updateApprovalBanner();
+  setupHomeListeners();
+  setupPlayerChat();
+  newCard();
+  loadMyWins();
+  loadPlayerHistory();
+}
+
+/* ======================================================
+   OTP SCREEN LOGIC — via EmailJS
+   ====================================================== */
+async function triggerSendOtp(){
+  if(otpSent || otpInProgress) return;
+  otpInProgress = true;
+
+  let msg=document.getElementById("otpMsg");
+  msg.style.color="#94a3b8";
+  msg.innerText="Sending code...";
+
+  try{
+    let code = generateOtpCode();
+    let expires = Date.now() + OTP_TTL_MS;
+
+    await userRef.update({ otpCode: code, otpExpires: expires });
+
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: currentUser.email,
+      to_name: userData?.name || currentUser.email,
+      otp_code: code,
+      passcode: code,
+      time: "10 minutes"
+    });
+
+    otpLastSentAt = Date.now();
+    otpSent = true;
+    msg.style.color="#22c55e";
+    msg.innerText="Code sent! Check your inbox (and spam folder).";
+    startResendCooldown();
+  }catch(e){
+    msg.style.color="#ef4444";
+    msg.innerText="Couldn't send code: "+(e?.text||e?.message||e);
+  }finally{
+    otpInProgress = false;
+  }
+}
+
+function startResendCooldown(){
+  let btn=document.getElementById("resendBtn");
+  if(!btn) return;
+  let remaining = Math.ceil(OTP_RESEND_COOLDOWN_MS/1000);
+  btn.disabled = true;
+  btn.innerText = "RESEND CODE ("+remaining+"s)";
+  let t = setInterval(()=>{
+    remaining--;
+    if(remaining<=0){
+      clearInterval(t);
+      btn.disabled=false;
+      btn.innerText="RESEND CODE";
+    } else {
+      btn.innerText="RESEND CODE ("+remaining+"s)";
+    }
+  },1000);
+}
+
+function resendOtp(){
+  if(otpInProgress) return;
+  if(Date.now()-otpLastSentAt < OTP_RESEND_COOLDOWN_MS) return;
+  otpSent=false;
+  triggerSendOtp();
+}
+
+async function submitOtp(){
+  let code=document.getElementById("otpInput").value.trim();
+  let msg=document.getElementById("otpMsg");
+  if(code.length!==6){
+    msg.style.color="#ef4444";
+    msg.innerText="Enter the 6-digit code.";
+    return;
+  }
+  try{
+    let snap = await userRef.get();
+    let d = snap.data();
+
+    if(!d.otpCode || !d.otpExpires){
+      msg.style.color="#ef4444";
+      msg.innerText="No code on file. Tap RESEND CODE.";
+      return;
+    }
+    if(Date.now() > d.otpExpires){
+      msg.style.color="#ef4444";
+      msg.innerText="Code expired. Tap RESEND CODE.";
+      return;
+    }
+    if(code !== d.otpCode){
+      msg.style.color="#ef4444";
+      msg.innerText="Incorrect code. Please try again.";
+      return;
+    }
+
+    await userRef.update({
+      otpVerified:true,
+      otpCode: firebase.firestore.FieldValue.delete(),
+      otpExpires: firebase.firestore.FieldValue.delete()
+    });
+    toast("Email verified! ✅","green");
+    document.getElementById("otpInput").value="";
+    routeByState();
+  }catch(e){
+    msg.style.color="#ef4444";
+    msg.innerText=e.message||"Verification failed.";
+  }
+}
+
+/* ======================================================
+   TERMS SCREEN
+   ====================================================== */
+async function acceptTerms(){
+  if(!document.getElementById("agreeCheck").checked){
+    toast("Please check the agreement box first.","red");
+    return;
+  }
+  await userRef.update({termsAccepted:true});
+  routeByState();
+}
+
+function acceptTutorial(){
+  userRef.update({tutorialSeen:true});
+  userData.tutorialSeen=true;
+  routeByState();
+}
+
+/* ======================================================
+   BALANCE / APPROVAL UI
+   ====================================================== */
+function updateBalanceUI(){
+  let b=userData?.balance||0;
+  document.querySelectorAll("#balance,#gameBalance").forEach(el=>el.innerText=b);
+}
+
+function updateApprovalBanner(){
+  let banner=document.getElementById("approvalBanner");
+  if(!banner || !currentUser || !userData) return;
+  let status=userData.accessStatus||"pending";
+  if(status==="approved"){ banner.style.display="none"; return; }
+  banner.style.display="block";
+  document.getElementById("approvalBannerText").innerText =
+    status==="rejected"
+      ? "Your request was rejected. Chat with an admin to resolve it."
+      : "Waiting for an admin to approve your account before you can join a game.";
+}
+
+function loadMyWins(){
+  let w=userData?.totalWins||0;
+  let el=document.getElementById("totalWins");
+  if(el) el.innerText=w;
+}
+
+/* ======================================================
+   PLAYER TABS (home / history)
+   ====================================================== */
+function switchPlayerTab(tab){
+  document.getElementById("homeTab").style.display    = tab==="home"    ? "block":"none";
+  document.getElementById("historyTab").style.display = tab==="history" ? "block":"none";
+  document.getElementById("navHome").classList.toggle("on",    tab==="home");
+  document.getElementById("navHistory").classList.toggle("on", tab==="history");
+  if(tab==="history") loadPlayerHistory();
+}
+
+async function loadPlayerHistory(){
+  let box=document.getElementById("historyList");
+  if(!box||!currentUser) return;
+  box.innerHTML="<p style='color:#64748b;font-size:13px;'>Loading...</p>";
+  let snap = await db.collection("users").doc(currentUser.uid)
+    .collection("history").orderBy("time","desc").limit(20).get();
+  if(snap.empty){
+    box.innerHTML="<p style='color:#64748b;font-size:14px;'>No games played yet.</p>";
+    return;
+  }
+  box.innerHTML="";
+  snap.forEach(doc=>{
+    let h=doc.data();
+    let d=document.createElement("div");
+    d.className="history-entry";
+    let date = h.time?.toDate ? h.time.toDate().toLocaleDateString() : "";
+    let resultColor = h.won ? "#22c55e" : "#94a3b8";
+    d.innerHTML=`
+      <div>
+        <div class="hist-result" style="color:${resultColor};">
+          ${h.won ? "🏆 "+h.result : "Played"}
+        </div>
+        <div class="hist-date">${date}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="hist-pts" style="color:${h.won?'#22c55e':'#64748b'};">
+          ${h.won ? "+"+h.pointsEarned+" pts" : "-30 pts"}
+        </div>
+        <div style="font-size:11px;color:#475569;">
+          ${h.calledCount||0} numbers called
+        </div>
+      </div>
+    `;
+    box.appendChild(d);
+  });
+}
+
+/* ======================================================
+   CARTELA GENERATION (random, unique, auto-assigned)
+   ====================================================== */
+function newCard(){
+  const ranges=[[1,15],[16,30],[31,45],[46,60],[61,75]];
+  card=[];
+  marked=Array(25).fill(false);
+  let cols=ranges.map(([mn,mx])=>{
+    let n=[];
+    for(let i=mn;i<=mx;i++) n.push(i);
+    n.sort(()=>Math.random()-0.5);
+    return n.slice(0,5);
+  });
+  for(let r=0;r<5;r++) for(let c=0;c<5;c++) card.push(cols[c][r]);
+  card[12]="FREE";
+  marked[12]=true;
+  renderHomeCard();
+}
+
+function renderHomeCard(){
+  let g=document.getElementById("homeCardGrid");
+  if(!g) return;
+  g.innerHTML="";
+  card.forEach((n,i)=>{
+    let d=document.createElement("div");
+    d.className="cell"+(marked[i]?" marked":"")+(n==="FREE"?" free":"");
+    d.innerText=n;
+    g.appendChild(d);
+  });
+}
+
+function renderGameCard(){
+  let g=document.getElementById("card");
+  if(!g) return;
+  g.innerHTML="";
+  let reqSet = currentRoundPattern ? currentRoundPattern.mask : [];
+  card.forEach((n,i)=>{
+    let d=document.createElement("div");
+    let isCalled = n!=="FREE" && called.includes(n);
+    d.className="cell"
+      +(marked[i]?" marked":"")
+      +(n==="FREE"?" free":"")
+      +(isCalled&&!marked[i]?" called-highlight":"")
+      +(reqSet.includes(i)?" pattern-req":"");
+    d.innerText=n;
+    d.onclick=()=>{
+      if(n==="FREE") return;
+      if(!called.includes(n)){ toast("Number not called yet!","red"); return; }
+      marked[i]=!marked[i];
+      renderGameCard();
+      db.collection("gameState").doc("current")
+        .collection("players").doc(currentUser.uid)
+        .update({marked}).catch(()=>{});
+      autoCheckWin();
+    };
+    g.appendChild(d);
+  });
+}
+
+function getLabel(n){
+  if(n<=15) return "B";
+  if(n<=30) return "I";
+  if(n<=45) return "N";
+  if(n<=60) return "G";
+  return "O";
+}
+function getLabelColor(l){
+  return {B:"#3b82f6",I:"#a855f7",N:"#22c55e",G:"#f97316",O:"#ef4444"}[l]||"#facc15";
+}
+
+/* ======================================================
+   HOME LISTENERS
+   ====================================================== */
+function setupHomeListeners(){
+  if(unsubRound) unsubRound();
+  unsubRound = db.collection("gameState").doc("current").onSnapshot(snap=>{
+    if(!snap.exists) return;
+    let d=snap.data();
+    let phase=d.phase||"-";
+    document.getElementById("roundStatus").innerText=phase.toUpperCase();
+    document.getElementById("activeCount").innerText=(d.activePlayers||[]).length;
+    called=d.calledNumbers||[];
+    currentRoundPattern = d.pattern || null;
+    updatePatternBadges(d.pattern);
+
+    if(phase==="betting" && lastPhase!=="betting"){
+      hasClaimedThisRound=false;
+      inGame=false;
+      let eb=document.getElementById("enterBtn");
+      if(eb) eb.disabled=true;
+      let hm=document.getElementById("homeMsg");
+      if(hm) hm.innerText="";
+      closeWinnerOverlay();
+    }
+    lastPhase=phase;
+
+    let bingoBtn=document.getElementById("bingoBtn");
+    if(bingoBtn) bingoBtn.disabled = !(phase==="running" && inGame);
+
+    document.getElementById("gamePhaseLabel").innerText=phase.toUpperCase();
+    document.getElementById("calledCount").innerText=called.length+"/75";
+
+    maybeShowWinner(d);
+
+    if(inGame && document.getElementById("game").classList.contains("active")){
+      updateGameUI(d);
+    }
+  });
+
+  db.collection("presence").onSnapshot(snap=>{
+    let c=snap.size;
+    document.getElementById("onlineCount").innerText=c;
+    let de=document.getElementById("dashOnline");
+    if(de) de.innerText=c;
+  });
+
+  db.collection("presence").doc(currentUser.uid).set({
+    online:true,uid:currentUser.uid,
+    lastSeen:firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+function updateGameUI(d){
+  called=d.calledNumbers||[];
+  let hist=document.getElementById("history");
+  if(hist) hist.innerHTML=called.map(n=>{
+    let l=getLabel(n);
+    return `<span style="color:${getLabelColor(l)};font-weight:bold;">${l}${n}</span>`;
+  }).join(" ");
+
+  document.getElementById("calledCount").innerText=called.length+"/75";
+
+  if(called.length){
+    let last=called[called.length-1];
+    let lbl=getLabel(last);
+    let nb=document.getElementById("numberBox");
+    let ld=document.getElementById("letterDisplay");
+    if(nb){
+      nb.innerText=lbl+last;
+      nb.classList.remove("flash");
+      void nb.offsetWidth;
+      nb.classList.add("flash");
+    }
+    if(ld){
+      ld.innerText=lbl;
+      ld.className="letter-display letter-"+lbl.toLowerCase();
+    }
+    playLetterSound(lbl,last);
+  }
+  renderGameCard();
+  autoCheckWin();
+}
+
+/* ======================================================
+   PATTERN ENGINE
+   ====================================================== */
+function maskFromRows(rows){
+  let idx=[];
+  rows.forEach((row,r)=>{
+    for(let c=0;c<5;c++) if(row[c]==='X') idx.push(r*5+c);
+  });
+  return idx;
+}
+const ROWIDX = r => [0,1,2,3,4].map(c=>r*5+c);
+const COLIDX = c => [0,1,2,3,4].map(r=>r*5+c);
+
+const STATIC_PATTERNS = {
+  "Diagonal (Top-Left → Bottom-Right)": maskFromRows(["X....",".X...","..X..","...X.","....X"]),
+  "Diagonal (Top-Right → Bottom-Left)": maskFromRows(["....X","...X.","..X..",".X...","X...."]),
+  "Four Corners": maskFromRows(["X...X",".....",".....",".....","X...X"]),
+  "X Pattern": maskFromRows(["X...X",".X.X.","..X..",".X.X.","X...X"]),
+  "Cross (+) Pattern": maskFromRows(["..X..","..X..","XXXXX","..X..","..X.."]),
+  "Full House (Cover All)": maskFromRows(["XXXXX","XXXXX","XXXXX","XXXXX","XXXXX"]),
+  "Blackout": maskFromRows(["XXXXX","XXXXX","XXXXX","XXXXX","XXXXX"]),
+  "Letter T": maskFromRows(["XXXXX","..X..","..X..","..X..","..X.."]),
+  "Letter L": maskFromRows(["X....","X....","X....","X....","XXXXX"]),
+  "Letter U": maskFromRows(["X...X","X...X","X...X","X...X","XXXXX"]),
+  "Letter H": maskFromRows(["X...X","X...X","XXXXX","X...X","X...X"]),
+  "Letter E": maskFromRows(["XXXXX","X....","XXXX.","X....","XXXXX"]),
+  "Letter C": maskFromRows([".XXXX","X....","X....","X....",".XXXX"]),
+  "Letter Z": maskFromRows(["XXXXX","....X","..X..",".X...","XXXXX"]),
+  "Letter N": maskFromRows(["X...X","XX..X","X.X.X","X..XX","X...X"]),
+  "Letter V": maskFromRows(["X...X","X...X",".X.X.",".X.X.","..X.."]),
+  "Letter Y": maskFromRows(["X...X",".X.X.","..X..","..X..","..X.."]),
+  "Diamond": maskFromRows(["..X..",".X.X.","X...X",".X.X.","..X.."]),
+  "Pyramid": maskFromRows(["..X..",".XXX.","XXXXX",".....","....."]),
+  "Arrow": maskFromRows(["..X..",".XXX.","X.X.X","..X..","..X.."]),
+  "Kite": maskFromRows(["..X..",".XXX.","XX.XX",".X.X.","..X.."]),
+  "Frame (Outside Border)": maskFromRows(["XXXXX","X...X","X...X","X...X","XXXXX"]),
+  "Inside Square": maskFromRows([".....",".XXX.",".X.X.",".XXX.","....."]),
+  "Center Square": maskFromRows([".....",".XXX.",".XXX.",".XXX.","....."]),
+  "Checkerboard": maskFromRows(["X.X.X",".X.X.","X.X.X",".X.X.","X.X.X"]),
+  "Small X": maskFromRows([".....",".X.X.","..X..",".X.X.","....."]),
+  "Large X": maskFromRows(["X...X",".X.X.","..X..",".X.X.","X...X"]),
+  "Top Row": ROWIDX(0),
+  "Bottom Row": ROWIDX(4),
+  "Left Column": COLIDX(0),
+  "Right Column": COLIDX(4),
+  "Center Cross": maskFromRows([".....","..X..",".XXX.","..X..","....."])
+};
+
+const BUILTIN_PATTERN_NAMES = [
+  "Horizontal Line","Vertical Line",
+  "Diagonal (Top-Left → Bottom-Right)","Diagonal (Top-Right → Bottom-Left)",
+  "Four Corners","X Pattern","Cross (+) Pattern","Full House (Cover All)","Blackout",
+  "Letter T","Letter L","Letter U","Letter H","Letter E","Letter C","Letter Z","Letter N","Letter V","Letter Y",
+  "Diamond","Pyramid","Arrow","Kite","Frame (Outside Border)","Inside Square","Center Square",
+  "Checkerboard","Small X","Large X","Top Row","Bottom Row","Left Column","Right Column","Center Cross",
+  "Crazy Bingo (Random Shape)"
+];
+
+function instantiatePattern(name){
+  if(name==="Horizontal Line"){
+    let r=Math.floor(Math.random()*5);
+    return {name:"Horizontal Line (Row "+(r+1)+")", mask:ROWIDX(r)};
+  }
+  if(name==="Vertical Line"){
+    let c=Math.floor(Math.random()*5);
+    return {name:"Vertical Line (Col "+(c+1)+")", mask:COLIDX(c)};
+  }
+  if(name==="Crazy Bingo (Random Shape)"){
+    let all=[...Array(25).keys()].filter(i=>i!==12);
+    all.sort(()=>Math.random()-0.5);
+    return {name:"Crazy Bingo (Random Shape)", mask:[12,...all.slice(0,9)]};
+  }
+  if(STATIC_PATTERNS[name]) return {name, mask:STATIC_PATTERNS[name]};
+  return null;
+}
+
+async function pickPatternForRound(){
+  let forced=document.getElementById('forcePatternSelect')?.value;
+  if(forced){
+    if(BUILTIN_PATTERN_NAMES.includes(forced)) return instantiatePattern(forced);
+    let doc=await db.collection('patterns').doc(forced).get();
+    if(doc.exists) return {name:doc.data().name, mask:doc.data().mask};
+  }
+  let settingsSnap=await db.collection('meta').doc('patternSettings').get();
+  let disabled=settingsSnap.exists?(settingsSnap.data().disabledBuiltins||[]):[];
+  let pool=BUILTIN_PATTERN_NAMES.filter(n=>!disabled.includes(n));
+
+  let customSnap=await db.collection('patterns').where('enabled','==',true).get();
+  let customList=[]; customSnap.forEach(d=>customList.push({id:d.id,...d.data()}));
+
+  let total=pool.length+customList.length;
+  if(total===0) return instantiatePattern("Four Corners");
+  let r=Math.floor(Math.random()*total);
+  if(r<pool.length) return instantiatePattern(pool[r]);
+  let cp=customList[r-pool.length];
+  return {name:cp.name, mask:cp.mask};
+}
+
+function renderMiniGrid(mask,container){
+  if(!container) return;
+  container.innerHTML="";
+  for(let i=0;i<25;i++){
+    let d=document.createElement("div");
+    d.className="mini-cell"+(i===12?" free2":"")+((mask||[]).includes(i)?" req":"");
+    container.appendChild(d);
+  }
+}
+
+function updatePatternBadges(pattern){
+  ["home","game"].forEach(prefix=>{
+    let badge=document.getElementById(prefix+"PatternBadge");
+    let nameEl=document.getElementById(prefix+"PatternName");
+    let mini=document.getElementById(prefix+"PatternMini");
+    if(!badge) return;
+    if(!pattern){ badge.style.display="none"; return; }
+    badge.style.display="flex";
+    nameEl.innerText=pattern.name;
+    renderMiniGrid(pattern.mask,mini);
+  });
+}
+
+function checkWinAgainstPattern(){
+  if(!currentRoundPattern || !currentRoundPattern.mask || !currentRoundPattern.mask.length) return false;
+  return currentRoundPattern.mask.every(i=>marked[i]===true);
+}
+
+function autoCheckWin(){
+  if(hasClaimedThisRound) return;
+  if(!inGame) return;
+  if(checkWinAgainstPattern()){
+    hasClaimedThisRound=true;
+    claimBingo();
+  }
+}
+
+function patternPoints(name){
+  if(!name) return 25;
+  if(name.includes("Full House")||name.includes("Blackout")) return 100;
+  if(name.includes("Crazy")||name.includes("Letter")||name.includes("Diamond")||
+     name.includes("Pyramid")||name.includes("Kite")||name.includes("Arrow")) return 60;
+  if(name.includes("X Pattern")||name.includes("Large X")||name.includes("Cross")||
+     name.includes("Frame")||name.includes("Checkerboard")) return 50;
+  if(name.includes("Four Corners")||name.includes("Small X")||name.includes("Center")||
+     name.includes("Inside Square")) return 35;
+  return 25; // lines, rows, columns, diagonals
+}
+
+/* ======================================================
+   JOIN GAME (gated: OTP verified + approved by admin)
+   ====================================================== */
+async function joinGame(){
+  if(!userData.otpVerified){
+    toast("Please verify your email first.","red");
+    routeByState();
+    return;
+  }
+  if(!userData.termsAccepted){
+    toast("Please accept the terms first.","red");
+    routeByState();
+    return;
+  }
+  if(userData.accessStatus!=="approved"){
+    toast("Your account needs admin approval before betting.","red");
+    document.getElementById("homeMsg").innerText=
+      "⏳ Waiting for admin approval. Tap the chat button to reach an admin.";
+    updateApprovalBanner();
+    toggleChat();
+    switchChatTab("support");
+    return;
+  }
+  if(userData.balance<30){
+    toast("Not enough points. Ask an admin.","red"); return;
+  }
+  let gs=await db.collection("gameState").doc("current").get();
+  if(!gs.exists||gs.data().phase!=="betting"){
+    toast("Wait for the betting phase!","red"); return;
+  }
+  await userRef.update({balance:firebase.firestore.FieldValue.increment(-30)});
+  await db.collection("gameState").doc("current")
+    .collection("players").doc(currentUser.uid).set({
+      uid:currentUser.uid,
+      name:userData.name,
+      cartela:card,
+      marked:marked,
+      joinedAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+  await db.collection("gameState").doc("current").update({
+    activePlayers:firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+  });
+
+  await userRef.collection("history").add({
+    roundId: gs.data().roundId||"",
+    won:false,
+    result:"",
+    pointsEarned:0,
+    calledCount:0,
+    time:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  await userRef.update({roundsPlayed:firebase.firestore.FieldValue.increment(1)});
+
+  inGame=true;
+  hasClaimedThisRound=false;
+  document.getElementById("enterBtn").disabled=false;
+  document.getElementById("homeMsg").innerText="Joined! Tap ENTER GAME when ready.";
+  toast("Joined! Good luck 🍀","green");
+}
+
+function enterGame(){
+  show("game");
+  updateBalanceUI();
+  renderGameCard();
+  let gs=db.collection("gameState").doc("current");
+  gs.get().then(snap=>{
+    if(snap.exists) updateGameUI(snap.data());
+  });
+}
+
+function backHome(){
+  show("home");
+}
+
+/* ======================================================
+   BINGO CLAIM — validated locally, verified atomically
+   via a Firestore transaction so only the first valid
+   winner per round can lock in the win (no manual admin
+   approval needed).
+   ====================================================== */
+async function claimBingo(){
+  if(!checkWinAgainstPattern()){
+    toast("Not a valid "+(currentRoundPattern?currentRoundPattern.name:"pattern")+" yet!","red");
+    hasClaimedThisRound=false;
+    return;
+  }
+  let resultEl=document.getElementById("resultMsg");
+  if(resultEl) resultEl.innerText="Verifying...";
+  let bingoBtn=document.getElementById("bingoBtn");
+  if(bingoBtn) bingoBtn.disabled=true;
+
+  try{
+    let gsRef=db.collection("gameState").doc("current");
+    let won=false;
+    await db.runTransaction(async t=>{
+      let snap=await t.get(gsRef);
+      let d=snap.data();
+      if(!d || d.winnerUid){ return; }
+      t.update(gsRef,{
+        winnerUid:currentUser.uid,
+        winnerName:userData.name,
+        winnerType:currentRoundPattern.name,
+        phase:"winner",
+        winnerTime:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      won=true;
+    });
+
+    if(!won){
+      if(resultEl) resultEl.innerText="Someone already won this round!";
+      toast("Too late — already won!","red");
+      return;
+    }
+
+    await gsRef.collection("winClaims").add({
+      uid:currentUser.uid,name:userData.name,type:currentRoundPattern.name,
+      cartela:card,marked:marked,called:called,verified:true,
+      time:firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    if(resultEl) resultEl.innerText="🎉 "+currentRoundPattern.name+" verified! You won!";
+  }catch(e){
+    if(resultEl) resultEl.innerText="Error verifying win. Try again.";
+    hasClaimedThisRound=false;
+  }
+}
+
+/* ======================================================
+   SOUND ENGINE
+   ====================================================== */
+const LETTER_FREQS = {B:300,I:400,N:500,G:600,O:700};
+
+function playLetterSound(letter,number){
+  try{
+    let ctx=new(window.AudioContext||window.webkitAudioContext)();
+    let o1=ctx.createOscillator();
+    let g1=ctx.createGain();
+    o1.connect(g1); g1.connect(ctx.destination);
+    o1.type="sine";
+    o1.frequency.value=LETTER_FREQS[letter]||440;
+    g1.gain.setValueAtTime(0.35,ctx.currentTime);
+    g1.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4);
+    o1.start(ctx.currentTime);
+    o1.stop(ctx.currentTime+0.4);
+
+    let o2=ctx.createOscillator();
+    let g2=ctx.createGain();
+    o2.connect(g2); g2.connect(ctx.destination);
+    o2.type="triangle";
+    o2.frequency.value=220+((number/75)*440);
+    g2.gain.setValueAtTime(0,ctx.currentTime+0.45);
+    g2.gain.linearRampToValueAtTime(0.3,ctx.currentTime+0.5);
+    g2.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.85);
+    o2.start(ctx.currentTime+0.45);
+    o2.stop(ctx.currentTime+0.85);
+  }catch(e){}
+}
+
+function playBettingMusic(){
+  try{
+    let ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [0,0.3,0.6,0.9].forEach(t=>{
+      let o=ctx.createOscillator();
+      let g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value=t===0?523:t===0.3?659:t===0.6?784:1047;
+      g.gain.setValueAtTime(0.15,ctx.currentTime+t);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+0.25);
+      o.start(ctx.currentTime+t);
+      o.stop(ctx.currentTime+t+0.25);
+    });
+  }catch(e){}
+}
+
+function playWinSound(){
+  try{
+    let ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [523,659,784,1047,1319].forEach((f,i)=>{
+      let o=ctx.createOscillator();
+      let g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value=f;
+      g.gain.setValueAtTime(0.25,ctx.currentTime+i*0.12);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+i*0.12+0.3);
+      o.start(ctx.currentTime+i*0.12);
+      o.stop(ctx.currentTime+i*0.12+0.3);
+    });
+  }catch(e){}
+}
+
+/* ======================================================
+   WINNER OVERLAY + CONFETTI
+   ====================================================== */
+function maybeShowWinner(d){
+  if(d.winnerUid && d.winnerUid!==lastSeenWinnerUid){
+    lastSeenWinnerUid=d.winnerUid;
+    showWinnerOverlay(d);
+  }
+  if(!d.winnerUid) lastSeenWinnerUid=null;
+}
+
+function showWinnerOverlay(d){
+  document.getElementById("winnerNameEl").innerText =
+    (currentUser && d.winnerUid===currentUser.uid) ? "🎉 YOU WON!" : (d.winnerName||"Winner");
+  document.getElementById("winnerTypeEl").innerText = d.winnerType||"";
+  document.getElementById("winnerPtsEl").innerText = "+"+patternPoints(d.winnerType)+" pts";
+  document.getElementById("winnerOverlay").classList.add("show");
+  launchConfetti();
+  playWinSound();
+  setTimeout(closeWinnerOverlay,6000);
+}
+
+function closeWinnerOverlay(){
+  document.getElementById("winnerOverlay").classList.remove("show");
+}
+
+function launchConfetti(){
+  let canvas=document.getElementById("confettiCanvas");
+  if(!canvas) return;
+  canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+  let ctx=canvas.getContext("2d");
+  let pieces=Array.from({length:120},()=>({
+    x:Math.random()*canvas.width, y:-20-Math.random()*200,
+    vy:2+Math.random()*4, vx:-2+Math.random()*4,
+    size:4+Math.random()*6,
+    color:["#facc15","#22c55e","#3b82f6","#a855f7","#ef4444"][Math.floor(Math.random()*5)],
+    rot:Math.random()*360, vr:-6+Math.random()*12
+  }));
+  let start=Date.now();
+  function frame(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pieces.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle=p.color; ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+      ctx.restore();
+    });
+    if(Date.now()-start<4000) requestAnimationFrame(frame);
+    else ctx.clearRect(0,0,canvas.width,canvas.height);
+  }
+  frame();
+}
+
+/* ======================================================
+   IN-APP NOTIFICATIONS
+   ====================================================== */
+function pushNotif(title, body){
+  let drawer=document.getElementById("notifDrawer");
+  let item=document.createElement("div");
+  item.className="notif-item";
+  item.innerHTML=`<div class="notif-title">🔔 ${title}</div><div class="notif-body">${body}</div>`;
+  item.onclick=()=>item.remove();
+  drawer.appendChild(item);
+  setTimeout(()=>{ if(item.parentNode) item.remove(); },6000);
+
+  let badge=document.getElementById("chatBadge");
+  if(badge) badge.style.display="flex";
+}
+
+function clearChatBadge(){
+  let badge=document.getElementById("chatBadge");
+  if(badge) badge.style.display="none";
+}
+
+/* ======================================================
+   TOAST
+   ====================================================== */
+function toast(msg,color="green"){
+  let t=document.createElement("div");
+  t.className="toast";
+  t.style.background=color==="red"
+    ? "linear-gradient(90deg,#b91c1c,#ef4444)"
+    : "linear-gradient(90deg,#16a34a,#22c55e)";
+  t.innerText=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+
+/* ======================================================
+   CHAT SYSTEM
+   ====================================================== */
+function toggleChat(){
+  let d=document.getElementById("chatDrawer");
+  d.classList.toggle("open");
+  if(d.classList.contains("open")) clearChatBadge();
+}
+
+function switchChatTab(tab){
+  document.getElementById("chatSupport").classList.toggle("on",tab==="support");
+  document.getElementById("chatAdminRoom").classList.toggle("on",tab==="adminroom");
+  document.getElementById("ctabSupport").classList.toggle("on",tab==="support");
+  document.getElementById("ctabAdminRoom").classList.toggle("on",tab==="adminroom");
+}
+
+/* ---- PLAYER CHAT ---- */
+function setupPlayerChat(){
+  if(isAdmin) return;
+  currentThreadUid=currentUser.uid;
+  db.collection("accessChats").doc(currentUser.uid).set({
+    userEmail:currentUser.email,
+    userName:userData?.name||"",
+    uid:currentUser.uid
+  },{merge:true});
+  listenThread(currentUser.uid,"supportMessages",false);
+}
+
+function listenThread(uid,boxId,asAdmin){
+  if(unsubThread) unsubThread();
+  unsubThread=db.collection("accessChats").doc(uid)
+    .collection("messages").orderBy("time")
+    .onSnapshot(snap=>{
+      let box=document.getElementById(boxId);
+      if(!box) return;
+      let wasAtBottom=box.scrollHeight-box.scrollTop<=box.clientHeight+40;
+      let prev=box.childElementCount;
+      box.innerHTML="";
+      snap.forEach(d=>appendMsg(box,d.data(),asAdmin));
+      if(wasAtBottom||snap.size>prev) box.scrollTop=box.scrollHeight;
+
+      if(snap.size>prev && !asAdmin){
+        let last=snap.docs[snap.size-1].data();
+        if(last.sender==="admin"){
+          pushNotif("Admin replied","You have a new message in Support chat.");
+        }
+      }
+    });
+}
+
+function appendMsg(box,m,viewAsAdmin){
+  let wrap=document.createElement("div");
+  wrap.style.margin="4px 0";
+  let isMe=viewAsAdmin ? m.sender==="admin" : m.sender==="player";
+  if(!isMe && m.sender==="admin"){
+    let lbl=document.createElement("div");
+    lbl.className="msg-label";
+    lbl.innerText="Admin";
+    wrap.appendChild(lbl);
+  }
+  let div=document.createElement("div");
+  div.className="msg "+(isMe?"msg-out":"msg-in");
+  if(m.type==="photo"){
+    let img=document.createElement("img");
+    img.src=m.url; img.className="msg-photo";
+    div.appendChild(img);
+  } else {
+    div.innerText=m.text||"";
+  }
+  wrap.appendChild(div);
+  box.appendChild(wrap);
+}
+
+async function sendSupportMsg(){
+  let input=document.getElementById("supportInput");
+  let text=input.value.trim();
+  if(!text) return;
+  let uid=isAdmin?currentThreadUid:currentUser.uid;
+  if(!uid) return;
+  await db.collection("accessChats").doc(uid).collection("messages").add({
+    sender:isAdmin?"admin":"player",
+    type:"text",text,
+    time:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  input.value="";
+}
+
+async function sendPhotoMsg(){
+  let file=document.getElementById("photoFileInput").files[0];
+  if(!file) return;
+  let uid=isAdmin?currentThreadUid:currentUser.uid;
+  if(!uid) return;
+  let ref=storage.ref("accessPhotos/"+uid+"_"+Date.now()+"_"+file.name);
+  await ref.put(file);
+  let url=await ref.getDownloadURL();
+  await db.collection("accessChats").doc(uid).collection("messages").add({
+    sender:isAdmin?"admin":"player",
+    type:"photo",url,
+    time:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  document.getElementById("photoFileInput").value="";
+}
+
+/* ---- ADMIN ROOM CHAT ---- */
+function listenAdminRoom(){
+  db.collection("adminChat").orderBy("time")
+    .onSnapshot(snap=>{
+      let box=document.getElementById("adminRoomMessages");
+      if(!box) return;
+      box.innerHTML="";
+      snap.forEach(d=>{
+        let m=d.data();
+        let isMe=m.uid===currentUser.uid;
+        if(!isMe){
+          let lbl=document.createElement("div");
+          lbl.className="msg-label";
+          lbl.innerText=m.name||"Admin";
+          box.appendChild(lbl);
+        }
+        let div=document.createElement("div");
+        div.className="msg "+(isMe?"msg-out":"msg-in");
+        div.innerText=m.text||"";
+        box.appendChild(div);
+      });
+      box.scrollTop=box.scrollHeight;
+    });
+}
+
+async function sendAdminRoomMsg(){
+  let input=document.getElementById("adminRoomInput");
+  let text=input.value.trim();
+  if(!text) return;
+  await db.collection("adminChat").add({
+    uid:currentUser.uid,
+    name:userData?.name||currentUser.email,
+    text,
+    time:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  input.value="";
+}
+
+/* ---- ADMIN CHAT SETUP ---- */
+function setupAdminChat(){
+  document.getElementById("ctabAdminRoom").style.display="flex";
+  document.getElementById("adminUserSelectWrap").style.display="block";
+  listenAdminRoom();
+  loadUserSelectList();
+}
+
+function loadUserSelectList(){
+  db.collection("users").onSnapshot(snap=>{
+    let sel=document.getElementById("adminUserSelect");
+    sel.innerHTML="<option value=''>-- select user --</option>";
+    snap.forEach(doc=>{
+      let u=doc.data();
+      let o=document.createElement("option");
+      o.value=doc.id;
+      o.innerText=(u.name||u.email)+" ("+u.email+")";
+      sel.appendChild(o);
+    });
+  });
+}
+
+function openUserThread(){
+  currentThreadUid=document.getElementById("adminUserSelect").value;
+  if(!currentThreadUid) return;
+  listenThread(currentThreadUid,"supportMessages",true);
+}
+
+function openChatWithUser(uid){
+  currentThreadUid=uid;
+  document.getElementById("adminUserSelect").value=uid;
+  listenThread(uid,"supportMessages",true);
+  toggleChat();
+  switchChatTab("support");
+}
+
+/* ======================================================
+   ADMIN PANEL
+   ====================================================== */
+function showAdminTab(id,btn){
+  document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("on"));
+  document.querySelectorAll(".admin-tab").forEach(b=>b.classList.remove("on"));
+  document.getElementById(id).classList.add("on");
+  if(btn) btn.classList.add("on");
+  if(id==="tabRound"){ loadRecentWinners(); refreshPatternList(); }
+  if(id==="tabPatterns"){ loadPatternManagement(); }
+  if(id==="tabOwner" && isOwner){ loadAdminsList(); }
+}
+
+function setupAdminPanel(){
+  loadRequests();
+  setupAdminDashboard();
+  refreshPatternList();
+
+  // Only the Owner sees/can use the Owner tab and admin-management controls.
+  let ownerBtn=document.getElementById("ownerTabBtn");
+  if(ownerBtn) ownerBtn.style.display = isOwner ? "inline-block" : "none";
+  if(isOwner) loadAdminsList();
+
+  // Kick off the self-healing engine watchdog for any admin/owner.
+  startEngineWatchdog();
+}
+
+/* ---- DASHBOARD ---- */
+function setupAdminDashboard(){
+  db.collection("users").onSnapshot(snap=>{
+    let de=document.getElementById("dashTotal");
+    if(de) de.innerText=snap.size;
+  });
+  db.collection("gameState").doc("current").onSnapshot(snap=>{
+    if(!snap.exists) return;
+    let d=snap.data();
+    liveWinnerUid = d.winnerUid || null;
+    if(d.winnerUid && roundInterval){
+      clearInterval(roundInterval);
+      roundInterval=null;
+    }
+
+    let dp=document.getElementById("dashPhase");
+    if(dp){
+      dp.innerText=(d.phase||"-").toUpperCase();
+      dp.className="pill pill-"+(d.phase==="betting"?"pending":d.phase==="running"?"approved":"rejected");
+    }
+    let da=document.getElementById("dashActive");
+    if(da) da.innerText=(d.activePlayers||[]).length;
+
+    let dpn=document.getElementById("dashPatternName");
+    if(dpn) dpn.innerText = d.pattern ? d.pattern.name : "-";
+
+    let des=document.getElementById("dashEngineStatus");
+    if(des){
+      if(d.manualStop) des.innerText="Engine: paused (manually stopped) — click START to resume.";
+      else if(roundInterval || bettingTimer) des.innerText="Engine: running (driven by this tab).";
+      else des.innerText="Engine: monitoring — will auto-resume if stalled.";
+    }
+
+    maybeShowWinner(d);
+    if(d.winnerUid) awardWinner(d);
+  });
+  db.collection("meta").doc("stats").onSnapshot(snap=>{
+    if(!snap.exists) return;
+    let d=snap.data();
+    let dr=document.getElementById("dashRounds");
+    if(dr) dr.innerText=d.totalRounds||0;
+    let dw=document.getElementById("dashLastWin");
+    if(dw && d.lastWinner) dw.innerText="Last winner: "+d.lastWinner+" ("+d.lastWinType+")";
+  });
+}
+
+/* ---- REQUESTS ---- */
+function loadRequests(){
+  db.collection("users").orderBy("createdAt","desc").onSnapshot(snap=>{
+    let box=document.getElementById("requestsList");
+    if(!box) return;
+    box.innerHTML="";
+    snap.forEach(doc=>{
+      let u=doc.data();
+      let div=document.createElement("div");
+      div.className="req-row";
+      div.innerHTML=`
+        <div class="req-name">${u.name||""}</div>
+        <div class="req-email">${u.email||""} ${u.dob?"· DOB: "+u.dob:""}</div>
+        <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="pill pill-${u.accessStatus||'pending'}">${(u.accessStatus||"pending").toUpperCase()}</span>
+          <span style="font-size:11px;color:${u.otpVerified?'#22c55e':'#ef4444'};">${u.otpVerified?"✅ Email verified":"❌ Email not verified"}</span>
+          <span style="font-size:12px;color:#64748b;">⭐ ${u.balance||0} pts · 🏆 ${u.totalWins||0} wins</span>
+        </div>
+        <div class="req-actions">
+          <button class="btn btn-green btn-small" onclick="approveUser('${doc.id}','${u.name||u.email}')">✓ Approve</button>
+          <button class="btn btn-red btn-small" onclick="rejectUser('${doc.id}')">✕ Reject</button>
+          <button class="btn btn-blue btn-small" onclick="openChatWithUser('${doc.id}')">💬 Chat</button>
+        </div>
+      `;
+      box.appendChild(div);
+    });
+  });
+}
+
+function approveUser(uid,name){
+  db.collection("users").doc(uid).update({accessStatus:"approved"});
+  toast("Approved: "+name,"green");
+}
+function rejectUser(uid){
+  db.collection("users").doc(uid).update({accessStatus:"rejected"});
+  toast("Rejected","red");
+}
+
+/* ---- POINTS (deposit / withdraw / set) ---- */
+async function findUserByEmail(email){
+  let snap=await db.collection("users")
+    .where("email","==",email.trim().toLowerCase()).limit(1).get();
+  if(snap.empty) return null;
+  return snap.docs[0];
+}
+
+async function setBalance(){
+  let email=document.getElementById("pointsEmail").value;
+  let amount=parseInt(document.getElementById("pointsAmount").value);
+  let msg=document.getElementById("pointsMsg");
+  if(!email||isNaN(amount)){ msg.innerText="Fill in both fields."; return; }
+  let doc=await findUserByEmail(email);
+  if(!doc){ msg.innerText="User not found."; return; }
+  await doc.ref.update({balance:amount});
+  await logTransaction(doc.id,"set",amount);
+  msg.innerText="Balance set to "+amount+" pts for "+email;
+}
+
+async function addBalance(){
+  let email=document.getElementById("pointsEmail").value;
+  let amount=parseInt(document.getElementById("pointsAmount").value);
+  let msg=document.getElementById("pointsMsg");
+  if(!email||isNaN(amount)){ msg.innerText="Fill in both fields."; return; }
+  let doc=await findUserByEmail(email);
+  if(!doc){ msg.innerText="User not found."; return; }
+  await doc.ref.update({balance:firebase.firestore.FieldValue.increment(amount)});
+  await logTransaction(doc.id,"deposit",amount);
+  msg.innerText="Deposited "+amount+" pts to "+email;
+}
+
+async function removeBalance(){
+  let email=document.getElementById("pointsEmail").value;
+  let amount=parseInt(document.getElementById("pointsAmount").value);
+  let msg=document.getElementById("pointsMsg");
+  if(!email||isNaN(amount)){ msg.innerText="Fill in both fields."; return; }
+  let doc=await findUserByEmail(email);
+  if(!doc){ msg.innerText="User not found."; return; }
+  await doc.ref.update({balance:firebase.firestore.FieldValue.increment(-amount)});
+  await logTransaction(doc.id,"withdraw",amount);
+  msg.innerText="Withdrew "+amount+" pts from "+email;
+}
+
+async function logTransaction(uid,type,amount){
+  await db.collection("transactions").add({
+    uid,type,amount,
+    byAdmin:currentUser.email,
+    time:firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+/* ======================================================
+   OWNER CONTROLS — add / remove admins by Gmail
+   Only ever called successfully when isOwner === true;
+   also double-checked inside each function as a guard.
+   ====================================================== */
+async function makeAdmin(){
+  let email=document.getElementById("newAdminEmail").value.trim();
+  let msg=document.getElementById("ownerMsg");
+  if(!isOwner){ msg.style.color="#ef4444"; msg.innerText="Only the Owner can do this."; return; }
+  if(!email){ msg.style.color="#ef4444"; msg.innerText="Enter a Gmail address."; return; }
+  let doc=await findUserByEmail(email);
+  if(!doc){
+    msg.style.color="#ef4444";
+    msg.innerText="No account found with that email yet — they must sign up in the app first.";
+    return;
+  }
+  if(doc.data().role==="owner"){
+    msg.style.color="#ef4444"; msg.innerText="That user is already the Owner.";
+    return;
+  }
+  await doc.ref.update({role:"admin"});
+  msg.style.color="#22c55e";
+  msg.innerText="✅ "+email+" is now an admin.";
+  document.getElementById("newAdminEmail").value="";
+}
+
+async function removeAdmin(uid,name){
+  if(!isOwner) return;
+  await db.collection("users").doc(uid).update({role:"player"});
+  toast("Removed admin: "+name,"red");
+}
+
+function loadAdminsList(){
+  if(!isOwner) return;
+  db.collection("users").where("role","in",["admin","owner"])
+    .onSnapshot(snap=>{
+      let box=document.getElementById("adminsList");
+      if(!box) return;
+      box.innerHTML="";
+      if(snap.empty){
+        box.innerHTML="<p style='color:#64748b;font-size:13px;'>No admins yet.</p>";
+        return;
+      }
+      snap.forEach(doc=>{
+        let u=doc.data();
+        let div=document.createElement("div");
+        div.className="req-row";
+        div.innerHTML=`
+          <div class="req-name">${u.role==="owner"?"👑 ":"🛠️ "}${u.name||u.email}</div>
+          <div class="req-email">${u.email||""}</div>
+          <span class="pill ${u.role==='owner'?'pill-approved':'pill-pending'}" style="display:inline-block;margin-bottom:8px;">${(u.role||"player").toUpperCase()}</span>
+        `;
+        if(u.role==="admin"){
+          let btn=document.createElement("button");
+          btn.className="btn btn-red btn-small";
+          btn.innerText="✕ Remove Admin";
+          btn.onclick=()=>removeAdmin(doc.id,u.name||u.email);
+          div.appendChild(btn);
+        }
+        box.appendChild(div);
+      });
+    });
+}
+
+/* ======================================================
+   ROUND CONTROL — full auto game engine
+   ====================================================== */
+async function adminStartRound(){
+  if(roundInterval) clearInterval(roundInterval);
+  if(bettingTimer)  clearTimeout(bettingTimer);
+
+  ensureHeartbeat(); // this tab is now the engine driver
+
+  let pattern = await pickPatternForRound();
+  let roundId="round_"+Date.now();
+
+  payoutProcessed=false;
+  liveWinnerUid=null;
+
+  await db.collection("gameState").doc("current").set({
+    roundId,phase:"betting",activePlayers:[],calledNumbers:[],
+    pattern,
+    winnerUid:null,winnerName:null,winnerType:null,winnerTime:null,
+    manualStop:false,
+    heartbeat:firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  await db.collection("meta").doc("stats").set({
+    totalRounds:firebase.firestore.FieldValue.increment(1)
+  },{merge:true});
+
+  document.getElementById("roundMsg").innerText=
+    "Pattern: "+pattern.name+" — betting phase started (30s)...";
+  toast("🎯 Pattern: "+pattern.name,"green");
+  playBettingMusic();
+
+  countdownVal=30;
+  bettingTimer=setInterval(async()=>{
+    countdownVal--;
+    let hc=document.getElementById("homeCountdown"); if(hc) hc.innerText=countdownVal+"s";
+    let gc=document.getElementById("gameCountdown"); if(gc) gc.innerText=countdownVal+"s";
+    if(countdownVal<=0){
+      clearInterval(bettingTimer);
+      bettingTimer=null;
+      let hc2=document.getElementById("homeCountdown"); if(hc2) hc2.innerText="";
+      let gc2=document.getElementById("gameCountdown"); if(gc2) gc2.innerText="";
+      document.getElementById("roundMsg").innerText="Calling numbers...";
+      await runNumbers();
+    }
+  },1000);
+}
+
+async function adminStopRound(){
+  if(roundInterval) clearInterval(roundInterval);
+  if(bettingTimer)  clearTimeout(bettingTimer);
+  roundInterval=null; bettingTimer=null;
+  await db.collection("gameState").doc("current").update({phase:"rest",manualStop:true});
+  document.getElementById("roundMsg").innerText=
+    "Round stopped. Auto-restart is paused — click START NEW ROUND to resume.";
+}
+
+async function runNumbers(){
+  await db.collection("gameState").doc("current").update({phase:"running"});
+  let pool=Array.from({length:75},(_,i)=>i+1).sort(()=>Math.random()-0.5);
+  let sofar=[];
+  let i=0;
+  let CALL_INTERVAL_MS=(parseFloat(document.getElementById('callIntervalInput')?.value)||3)*1000;
+
+  roundInterval=setInterval(async()=>{
+    if(liveWinnerUid){
+      clearInterval(roundInterval);
+      roundInterval=null;
+      return;
+    }
+    if(i>=pool.length){
+      clearInterval(roundInterval);
+      roundInterval=null;
+      await db.collection("gameState").doc("current").update({phase:"rest"});
+      document.getElementById("roundMsg").innerText="No winner this round. Next round in 15s...";
+      scheduleNextRound(15000);
+      return;
+    }
+    sofar.push(pool[i]);
+    await db.collection("gameState").doc("current").update({
+      calledNumbers:[...sofar],
+      heartbeat:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    i++;
+  },CALL_INTERVAL_MS);
+}
+
+function scheduleNextRound(ms){
+  if(bettingTimer) clearTimeout(bettingTimer);
+  bettingTimer=setTimeout(()=>adminStartRound(),ms);
+}
+
+/* ---- WINNER PAYOUT (fires once, on the admin instance that detects the win) ---- */
+async function awardWinner(d){
+  if(payoutProcessed) return;
+  payoutProcessed=true;
+  if(roundInterval){ clearInterval(roundInterval); roundInterval=null; }
+
+  let pts=patternPoints(d.winnerType);
+
+  await db.collection("users").doc(d.winnerUid).update({
+    balance:firebase.firestore.FieldValue.increment(pts),
+    totalWins:firebase.firestore.FieldValue.increment(1)
+  });
+
+  await db.collection("meta").doc("stats").set({
+    lastWinner:d.winnerName,lastWinType:d.winnerType
+  },{merge:true});
+
+  await db.collection("winners").add({
+    uid:d.winnerUid,name:d.winnerName,type:d.winnerType,prize:pts,
+    time:firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  let histSnap=await db.collection("users").doc(d.winnerUid)
+    .collection("history").orderBy("time","desc").limit(1).get();
+  if(!histSnap.empty){
+    await histSnap.docs[0].ref.update({
+      won:true,result:d.winnerType,pointsEarned:pts,
+      calledCount:(d.calledNumbers||[]).length
+    });
+  }
+
+  document.getElementById("roundMsg").innerText=
+    "Winner: "+d.winnerName+" ("+d.winnerType+")! Next round in 15s...";
+  scheduleNextRound(15000);
+}
+
+/* ---- RECENT WINNERS (audit log, read-only — win is auto-verified now) ---- */
+function loadRecentWinners(){
+  db.collection("winners").orderBy("time","desc").limit(10)
+    .onSnapshot(snap=>{
+      let box=document.getElementById("winClaimsList");
+      if(!box) return;
+      if(snap.empty){ box.innerHTML="<p style='color:#64748b;font-size:13px;'>No winners yet.</p>"; return; }
+      box.innerHTML="";
+      snap.forEach(doc=>{
+        let c=doc.data();
+        let div=document.createElement("div");
+        div.style.cssText="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px;margin:8px 0;";
+        div.innerHTML=`
+          <div style="font-weight:bold;font-size:15px;">${c.name||""}</div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px;">
+            Pattern: <strong style="color:#facc15;">${c.type||""}</strong> · +${c.prize||0} pts
+          </div>`;
+        box.appendChild(div);
+      });
+    });
+}
+
+/* ======================================================
+   PATTERN MANAGEMENT (ADMIN)
+   ====================================================== */
+function loadPatternManagement(){
+  renderPatternEditorGrid();
+  refreshPatternList();
+}
+
+function renderPatternEditorGrid(){
+  let g=document.getElementById("patternEditorGrid");
+  if(!g) return;
+  g.innerHTML="";
+  for(let i=0;i<25;i++){
+    let d=document.createElement("div");
+    d.className="pattern-editor-cell"+(editingMask.includes(i)?" on":"")+(i===12?" free2":"");
+    if(i!==12){
+      d.onclick=()=>{
+        let idx=editingMask.indexOf(i);
+        if(idx>=0) editingMask.splice(idx,1); else editingMask.push(i);
+        renderPatternEditorGrid();
+      };
+    }
+    g.appendChild(d);
+  }
+}
+
+async function saveCustomPattern(){
+  let name=document.getElementById("customPatternName").value.trim();
+  let msg=document.getElementById("customPatternMsg");
+  if(!name){ msg.style.color="#ef4444"; msg.innerText="Enter a pattern name."; return; }
+  if(editingMask.length<2){ msg.style.color="#ef4444"; msg.innerText="Select at least one required cell."; return; }
+  await db.collection("patterns").add({
+    name, mask:editingMask, enabled:true,
+    createdBy:currentUser.email,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  msg.style.color="#22c55e"; msg.innerText="Saved!";
+  document.getElementById("customPatternName").value="";
+  editingMask=[12];
+  renderPatternEditorGrid();
+  refreshPatternList();
+}
+
+async function refreshPatternList(){
+  let box=document.getElementById("patternList");
+  let sel=document.getElementById("forcePatternSelect");
+  if(sel) sel.innerHTML="<option value=''>-- Random enabled pattern --</option>";
+  if(!box) { /* still refresh dropdown if list panel not open */ }
+
+  let settingsRef=db.collection("meta").doc("patternSettings");
+  let settingsSnap=await settingsRef.get();
+  let disabled=settingsSnap.exists?(settingsSnap.data().disabledBuiltins||[]):[];
+
+  if(box) box.innerHTML="";
+
+  BUILTIN_PATTERN_NAMES.forEach(name=>{
+    let on=!disabled.includes(name);
+    if(box){
+      let row=document.createElement("div");
+      row.className="pattern-list-row";
+      row.innerHTML=`<span>${name}</span>`;
+      let t=document.createElement("div");
+      t.className="pattern-toggle"+(on?" on":"");
+      t.onclick=async()=>{
+        let d2=(await settingsRef.get());
+        let dis=d2.exists?(d2.data().disabledBuiltins||[]):[];
+        if(dis.includes(name)) dis=dis.filter(n=>n!==name); else dis.push(name);
+        await settingsRef.set({disabledBuiltins:dis},{merge:true});
+        refreshPatternList();
+      };
+      row.appendChild(t);
+      box.appendChild(row);
+    }
+    if(sel && on){
+      let o=document.createElement("option"); o.value=name; o.innerText=name; sel.appendChild(o);
+    }
+  });
+
+  let customSnap=await db.collection("patterns").get();
+  customSnap.forEach(doc=>{
+    let p=doc.data();
+    if(box){
+      let row=document.createElement("div");
+      row.className="pattern-list-row";
+      row.innerHTML=`<span>${p.name} <span style="color:#64748b;font-size:11px;">(custom)</span></span>`;
+      let wrap=document.createElement("div");
+      wrap.style.cssText="display:flex;align-items:center;gap:8px;";
+      let t=document.createElement("div");
+      t.className="pattern-toggle"+(p.enabled?" on":"");
+      t.onclick=async()=>{ await doc.ref.update({enabled:!p.enabled}); refreshPatternList(); };
+      let del=document.createElement("button");
+      del.className="btn btn-red btn-small"; del.innerText="✕";
+      del.onclick=async()=>{ await doc.ref.delete(); refreshPatternList(); };
+      wrap.appendChild(t); wrap.appendChild(del);
+      row.appendChild(wrap);
+      box.appendChild(row);
+    }
+    if(sel && p.enabled){
+      let o=document.createElement("option"); o.value=doc.id; o.innerText=p.name+" (custom)"; sel.appendChild(o);
+    }
+  });
+}
+
+/* ======================================================
+   ENGINE AUTO-START / SELF-HEALING WATCHDOG
+   ------------------------------------------------------
+   The number-calling loop lives in this browser tab's
+   memory (roundInterval/bettingTimer). If every admin/owner
+   closes their tab mid-round, nothing is left to call
+   numbers. To fix that without a paid backend function:
+
+   1. Whichever admin tab is actively driving a round pings
+      a `heartbeat` timestamp into gameState/current every 5s.
+   2. Every admin/owner tab that has the dashboard open checks
+      that heartbeat every 8s. If it's stale (>15s old) and
+      nobody local is driving, THIS tab claims the engine and
+      (re)starts a round automatically.
+   3. If a round has never been started at all (no gameState
+      doc yet), it also auto-starts.
+   4. If you press STOP ROUND on purpose, `manualStop` is set
+      and the watchdog leaves the engine paused until you press
+      START again.
+
+   Net effect: as long as ANY admin or the owner has the admin
+   dashboard open in a browser tab, the engine runs continuously
+   and self-recovers. It does not run with zero admins online —
+   that would require a server-side Cloud Function (see note below).
+   ====================================================== */
+function ensureHeartbeat(){
+  if(engineHeartbeatInterval) return;
+  engineHeartbeatInterval=setInterval(()=>{
+    db.collection("gameState").doc("current").set({
+      heartbeat:firebase.firestore.FieldValue.serverTimestamp()
+    },{merge:true}).catch(()=>{});
+  },5000);
+}
+
+function startEngineWatchdog(){
+  if(!isAdmin) return;
+  if(watchdogInterval) return;
+  checkEngineHealth();
+  watchdogInterval=setInterval(checkEngineHealth,8000);
+}
+
+async function checkEngineHealth(){
+  try{
+    let ref=db.collection("gameState").doc("current");
+    let snap=await ref.get();
+    let now=Date.now();
+
+    if(!snap.exists){
+      // Never started a single round yet — auto-start it.
+      claimDriverAndStart();
+      return;
+    }
+
+    let d=snap.data();
+    if(d.manualStop) return; // paused on purpose, don't override
+
+    let hb = d.heartbeat && d.heartbeat.toMillis ? d.heartbeat.toMillis() : 0;
+    let stale = (now-hb) > 15000;
+
+    if((!d.phase || d.phase==="rest") && stale){
+      // Idle and nobody driving — auto-start a fresh round.
+      claimDriverAndStart();
+    } else if((d.phase==="betting"||d.phase==="running") && stale && !d.winnerUid){
+      // Round got stuck mid-way (previous driver's tab closed) — restart it fresh.
+      claimDriverAndStart();
+    }
+  }catch(e){ /* ignore transient errors */ }
+}
+
+async function claimDriverAndStart(){
+  if(roundInterval || bettingTimer) return; // this tab is already driving
+  ensureHeartbeat();
+  await adminStartRound();
+}
+</script>
+</body>
+</html>
+.divider{
+  display:flex; align-items:center;
+  margin:16px 0; color:#475569; font-size:13px;
+}
+.divider::before,.divider::after{
+  content:''; flex:1; border-top:1px solid #334155; margin:0 10px;
+}
+.google-btn{
+  display:flex; align-items:center; justify-content:center;
+  gap:10px; padding:12px; border:1.5px solid #334155;
+  border-radius:10px; background:#1e293b; color:white;
+  cursor:pointer; font-weight:bold; width:100%;
+  font-size:14px; transition:all 0.2s;
+}
+.google-btn:hover{ border-color:#3b82f6; }
+.google-icon{
+  width:20px; height:20px;
+  background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="%23EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="%234285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="%23FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="%2334A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>') center/contain no-repeat;
+}
+.error-msg{ color:#ef4444; font-size:13px; margin-top:8px; text-align:center; }
+.success-msg{ color:#22c55e; font-size:13px; margin-top:8px; text-align:center; }
+.center-wrap{
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; padding:40px 20px; min-height:100vh;
+}
+
+/* ===== TUTORIAL / TERMS ===== */
+.tutorial-steps{ max-width:420px; width:100%; }
+.step{ display:flex; gap:16px; margin:16px 0; align-items:flex-start; }
+.step-num{
+  background:#facc15; color:#0b1220; width:32px; height:32px;
+  border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-weight:900; flex-shrink:0;
+}
+.step-text{ font-size:14px; color:#cbd5e1; line-height:1.6; }
+.terms-box{
+  max-width:460px; width:100%; max-height:50vh; overflow-y:auto;
+  background:#1e293b; border:1px solid #334155; border-radius:14px;
+  padding:18px; font-size:13px; color:#94a3b8; line-height:1.8;
+}
+.terms-box h4{ color:#facc15; margin:14px 0 4px; }
+.terms-box h4:first-child{ margin-top:0; }
+.agree-row{
+  display:flex; align-items:center; gap:10px; margin:16px 0;
+  max-width:460px; width:100%;
+}
+.agree-row input[type=checkbox]{ width:20px; height:20px; accent-color:#22c55e; }
+
+/* ===== PILLS ===== */
+.pill{ padding:5px 14px; border-radius:20px; font-size:12px; font-weight:bold; }
+.pill-pending{ background:#ca8a04; color:white; }
+.pill-approved{ background:#16a34a; color:white; }
+.pill-rejected{ background:#b91c1c; color:white; }
+
+/* ===== HOME ===== */
+.home-body{ max-width:500px; margin:0 auto; padding:20px; }
+.stats-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:16px 0; }
+.stat-card{
+  background:#1e293b; border:1px solid #334155;
+  border-radius:12px; padding:14px; text-align:center;
+}
+.stat-num{ font-size:24px; font-weight:900; color:#facc15; }
+.stat-label{ font-size:11px; color:#64748b; margin-top:4px; }
+.phase-bar{
+  background:#1e293b; border:1px solid #334155;
+  border-radius:12px; padding:14px 18px; margin:12px 0;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.phase-label{ font-size:13px; color:#94a3b8; }
+.phase-val{ font-weight:bold; color:#facc15; }
+
+/* ===== PATTERN BADGE / MINI GRID ===== */
+.pattern-badge{
+  background:linear-gradient(135deg,#7e22ce,#a855f7);
+  border-radius:12px; padding:10px 14px; margin:10px 0;
+  display:flex; align-items:center; gap:12px;
+}
+.pattern-badge-name{ font-weight:900; font-size:13px; flex:1; line-height:1.4; }
+.mini-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:2px; width:64px; flex-shrink:0; }
+.mini-cell{ aspect-ratio:1; background:rgba(0,0,0,0.35); border-radius:2px; }
+.mini-cell.req{ background:#facc15; }
+.mini-cell.free2{ background:#0b1220; border:1px solid #facc15; }
+
+/* ===== HISTORY TAB ===== */
+.history-entry{
+  background:#1e293b; border:1px solid #334155;
+  border-radius:10px; padding:12px; margin:8px 0;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.hist-result{ font-weight:bold; color:#facc15; }
+.hist-date{ font-size:11px; color:#64748b; }
+.hist-pts{ font-size:13px; }
+
+/* ===== GAME ===== */
+.game-body{ max-width:380px; margin:0 auto; padding:20px; }
+#numberBox{
+  font-size:72px; font-weight:900; color:#facc15;
+  text-align:center; margin:10px 0;
+  text-shadow:0 0 30px rgba(250,204,21,0.6);
+  letter-spacing:4px;
+}
+.letter-display{
+  font-size:36px; font-weight:900; text-align:center;
+  margin-bottom:4px; letter-spacing:8px;
+}
+.letter-b{ color:#3b82f6; }
+.letter-i{ color:#a855f7; }
+.letter-n{ color:#22c55e; }
+.letter-g{ color:#f97316; }
+.letter-o{ color:#ef4444; }
+
+.game-phase-bar{
+  background:#1e293b; border-radius:10px;
+  padding:10px 14px; margin:10px 0;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.game-countdown{ font-size:28px; font-weight:900; color:#ef4444; }
+
+.cartela-wrap{ margin:0 auto; }
+.bingo-header{ display:grid; grid-template-columns:repeat(5,1fr); gap:4px; margin-bottom:4px; }
+.bingo-header-cell{
+  background:linear-gradient(135deg,#ca8a04,#facc15);
+  color:#0b1220; text-align:center; font-size:20px;
+  font-weight:900; padding:10px 0; border-radius:8px;
+}
+.grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:4px; }
+.cell{
+  background:#1e293b; border:1px solid #334155;
+  padding:12px 4px; border-radius:8px; cursor:pointer;
+  font-weight:bold; text-align:center; font-size:15px;
+  transition:all 0.15s;
+}
+.cell:hover{ background:#2d3f58; }
+.cell.marked{
+  background:linear-gradient(135deg,#16a34a,#22c55e);
+  border-color:#22c55e; transform:scale(1.04);
+  box-shadow:0 0 10px rgba(34,197,94,0.4);
+}
+.cell.free{
+  background:linear-gradient(135deg,#7e22ce,#a855f7);
+  border-color:#a855f7; color:white; font-size:11px;
+}
+.cell.called-highlight{ border-color:#facc15; }
+.cell.pattern-req{ box-shadow:inset 0 0 0 2px #facc15; }
+
+.history-wrap{
+  background:#1e293b; border-radius:10px; padding:10px;
+  max-height:70px; overflow-y:auto; font-size:12px;
+  color:#94a3b8; margin:10px 0; line-height:1.8;
+}
+
+.flash{ animation:flash 0.4s; }
+@keyframes flash{
+  0%{transform:scale(1);color:#facc15;}
+  40%{transform:scale(1.18);color:#fff;}
+  100%{transform:scale(1);color:#facc15;}
+}
+
+/* ===== ADMIN ===== */
+.admin-body{ max-width:520px; margin:0 auto; padding:20px; }
+.admin-tabs{ display:flex; gap:6px; margin:16px 0; flex-wrap:wrap; }
+.admin-tab{
+  padding:8px 14px; border:1.5px solid #334155;
+  border-radius:8px; background:transparent; color:#94a3b8;
+  cursor:pointer; font-size:12px; font-weight:bold; transition:all 0.2s;
+}
+.admin-tab.on{ background:#3b82f6; border-color:#3b82f6; color:white; }
+.tab-panel{ display:none; }
+.tab-panel.on{ display:block; }
+.req-row{
+  background:#1e293b; border:1px solid #334155;
+  border-radius:12px; padding:14px; margin:10px 0;
+}
+.req-name{ font-weight:bold; font-size:15px; }
+.req-email{ font-size:12px; color:#64748b; margin:2px 0 8px; }
+.req-actions{ display:flex; gap:6px; flex-wrap:wrap; }
+
+/* ===== DASHBOARD STATS ===== */
+.dash-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:12px 0; }
+.dash-card{
+  background:#1e293b; border:1px solid #334155;
+  border-radius:12px; padding:16px; text-align:center;
+}
+.dash-num{ font-size:28px; font-weight:900; color:#facc15; }
+.dash-label{ font-size:11px; color:#64748b; margin-top:4px; }
+
+/* ===== PATTERN MANAGEMENT (ADMIN) ===== */
+.pattern-editor-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; max-width:260px; margin:12px auto; }
+.pattern-editor-cell{
+  aspect-ratio:1; background:#1e293b; border:1px solid #334155;
+  border-radius:6px; cursor:pointer; transition:all 0.15s;
+}
+.pattern-editor-cell.on{
+  background:linear-gradient(135deg,#16a34a,#22c55e); border-color:#22c55e;
+}
+.pattern-editor-cell.free2{
+  background:#7e22ce; border-color:#a855f7; cursor:default;
+}
+.pattern-list-row{
+  display:flex; align-items:center; justify-content:space-between;
+  background:#1e293b; border:1px solid #334155; border-radius:10px;
+  padding:10px 14px; margin:6px 0; font-size:13px;
+}
+.pattern-toggle{
+  width:40px; height:22px; border-radius:20px; position:relative;
+  cursor:pointer; background:#334155; transition:.2s; flex-shrink:0;
+}
+.pattern-toggle.on{ background:#22c55e; }
+.pattern-toggle::after{
+  content:''; position:absolute; top:2px; left:2px;
+  width:18px; height:18px; background:white; border-radius:50%; transition:.2s;
+}
+.pattern-toggle.on::after{ left:20px; }
+
+/* ===== FLOATING CHAT ===== */
+.chat-fab{
+  position:fixed; bottom:20px; right:20px;
+  width:56px; height:56px;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  border-radius:50%; display:flex; align-items:center;
+  justify-content:center; cursor:pointer;
+  box-shadow:0 4px 20px rgba(59,130,246,0.5);
+  z-index:999; transition:transform 0.2s; border:none;
+}
+.chat-fab:hover{ transform:scale(1.1); }
+.chat-badge{
+  position:absolute; top:-4px; right:-4px;
+  background:#ef4444; color:white; border-radius:50%;
+  width:20px; height:20px; font-size:11px; font-weight:bold;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* ===== CHAT DRAWER ===== */
+.chat-drawer{
+  position:fixed; bottom:0; right:0; width:340px;
+  max-height:530px; background:#0f172a;
+  border:1px solid #334155; border-radius:16px 16px 0 0;
+  box-shadow:0 -4px 30px rgba(0,0,0,0.5);
+  z-index:1000; display:none; flex-direction:column;
+}
+.chat-drawer.open{ display:flex; }
+.chat-drawer-header{
+  background:#1e293b; padding:14px 18px;
+  border-radius:16px 16px 0 0;
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid #334155;
+}
+.chat-drawer-title{ font-weight:bold; font-size:15px; }
+.chat-close{ background:none; border:none; color:#94a3b8; cursor:pointer; font-size:20px; }
+.chat-tabs-row{ display:flex; border-bottom:1px solid #334155; }
+.chat-tab{
+  flex:1; padding:10px; background:none; border:none;
+  color:#64748b; cursor:pointer; font-size:13px;
+  font-weight:bold; transition:all 0.2s;
+}
+.chat-tab.on{ color:#facc15; border-bottom:2px solid #facc15; }
+.chat-body{ flex:1; overflow-y:auto; padding:12px; min-height:180px; max-height:240px; }
+.chat-messages{ display:none; flex-direction:column; }
+.chat-messages.on{ display:flex; }
+.msg{
+  margin:5px 0; max-width:80%; padding:9px 13px;
+  border-radius:12px; font-size:13px; line-height:1.5;
+  word-break:break-word;
+}
+.msg-out{
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  margin-left:auto; border-radius:12px 12px 2px 12px;
+}
+.msg-in{
+  background:#1e293b; border:1px solid #334155;
+  border-radius:12px 12px 12px 2px;
+}
+.msg-label{ font-size:10px; color:#facc15; margin-bottom:2px; }
+.msg-photo{ max-width:160px; border-radius:8px; display:block; margin-top:6px; }
+.chat-input-row{
+  display:flex; gap:8px; padding:10px 12px;
+  border-top:1px solid #334155; align-items:center;
+}
+.chat-input-row input{
+  flex:1; padding:9px 12px; background:#1e293b;
+  border:1px solid #334155; border-radius:8px;
+  color:white; font-size:13px;
+}
+.chat-send-btn{
+  background:#3b82f6; border:none; border-radius:8px;
+  color:white; padding:9px 14px; cursor:pointer; font-size:16px;
+}
+.chat-photo-btn{
+  background:#1e293b; border:1px solid #334155;
+  border-radius:8px; color:#94a3b8; padding:9px 11px;
+  cursor:pointer; font-size:16px;
+}
+.chat-user-select{ padding:10px 12px; border-bottom:1px solid #334155; }
+.chat-user-select select{
+  width:100%; padding:8px; background:#1e293b;
+  border:1px solid #334155; border-radius:8px;
+  color:white; font-size:13px;
+}
+
+/* ===== IN-APP NOTIFICATIONS ===== */
+.notif-drawer{
+  position:fixed; top:0; right:0; width:320px;
+  max-height:400px; overflow-y:auto;
+  z-index:2000; padding:12px; pointer-events:none;
+}
+.notif-item{
+  background:linear-gradient(135deg,#1e293b,#0f172a);
+  border:1px solid #334155; border-radius:12px;
+  padding:12px 16px; margin-bottom:10px;
+  pointer-events:all; cursor:pointer;
+  animation:slideIn 0.3s ease;
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+@keyframes slideIn{
+  from{transform:translateX(100%);opacity:0;}
+  to{transform:translateX(0);opacity:1;}
+}
+.notif-title{ font-weight:bold; font-size:14px; color:#facc15; }
+.notif-body{ font-size:12px; color:#94a3b8; margin-top:3px; }
+
+/* ===== TOAST ===== */
+.toast{
+  position:fixed; top:20px; left:50%; transform:translateX(-50%);
+  background:linear-gradient(90deg,#16a34a,#22c55e);
+  color:white; padding:14px 28px; border-radius:12px;
+  font-weight:bold; font-size:15px; z-index:9999;
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+  animation:toastIn 0.3s ease;
+}
+@keyframes toastIn{
+  from{top:-60px;opacity:0;}
+  to{top:20px;opacity:1;}
+}
+
+/* ===== WINNER OVERLAY ===== */
+#confettiCanvas{ position:fixed; inset:0; z-index:5001; pointer-events:none; }
+.winner-overlay{
+  position:fixed; inset:0; background:rgba(11,18,32,0.94);
+  z-index:5000; display:none; align-items:center; justify-content:center;
+  flex-direction:column; text-align:center; padding:20px;
+}
+.winner-overlay.show{ display:flex; }
+.winner-emoji{ font-size:70px; animation:winnerPop 0.6s ease; }
+@keyframes winnerPop{
+  0%{ transform:scale(0); }
+  60%{ transform:scale(1.25); }
+  100%{ transform:scale(1); }
+}
+.winner-name{ font-size:28px; font-weight:900; color:#facc15; margin:12px 0 4px; }
+.winner-type{ font-size:16px; color:#c084fc; font-weight:bold; }
+.winner-pts{ font-size:18px; color:#22c55e; margin-top:10px; font-weight:bold; }
+
+/* ===== BOTTOM NAV (player) ===== */
+.bottom-nav{
+  position:fixed; bottom:0; left:0; right:0;
+  background:#0f172a; border-top:1px solid #334155;
+  display:flex; z-index:90; max-width:500px; margin:0 auto;
+}
+.nav-btn{
+  flex:1; padding:12px 0; border:none; background:none;
+  color:#64748b; font-size:11px; font-weight:bold;
+  cursor:pointer; display:flex; flex-direction:column;
+  align-items:center; gap:3px; transition:color 0.2s;
+}
+.nav-btn.on{ color:#facc15; }
+.nav-btn svg{ width:22px; height:22px; }
+
+.has-nav{ padding-bottom:70px; }
+
+@media(max-width:400px){
+  .chat-drawer{ width:100%; border-radius:16px 16px 0 0; }
+  #numberBox{ font-size:52px; }
+  .dash-grid{ grid-template-columns:1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== NOTIFICATION DRAWER ===== -->
+<div class="notif-drawer" id="notifDrawer"></div>
+
+<!-- ===== CONFETTI + WINNER OVERLAY ===== -->
+<canvas id="confettiCanvas"></canvas>
+<div class="winner-overlay" id="winnerOverlay">
+  <div class="winner-emoji">🏆</div>
+  <div class="winner-name" id="winnerNameEl">-</div>
+  <div class="winner-type" id="winnerTypeEl">-</div>
+  <div class="winner-pts" id="winnerPtsEl">-</div>
+  <button class="btn btn-outline" style="max-width:200px;margin-top:24px;" onclick="closeWinnerOverlay()">CLOSE</button>
+</div>
+
+<!-- ===== WELCOME ===== -->
+<div id="welcome" class="screen active">
+  <div class="center-wrap">
+    <div class="logo-big">ABI</div>
+    <div class="logo-sub">GAMING TECH · BIG BINGO</div>
+    <div class="auth-box">
+      <div class="tab-switch">
+        <button class="tab-btn on" onclick="switchAuthTab('login')">LOGIN</button>
+        <button class="tab-btn" onclick="switchAuthTab('signup')">SIGN UP</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="loginForm">
+        <div class="input-group">
+          <label>Email Address</label>
+          <input type="email" id="loginEmail" placeholder="your@email.com">
+        </div>
+        <div class="input-group">
+          <label>Password</label>
+          <input type="password" id="loginPassword" placeholder="Password">
+        </div>
+        <button class="btn btn-blue" onclick="emailLogin()">LOGIN</button>
+        <div class="divider">or</div>
+        <button class="google-btn" onclick="googleLogin()">
+          <div class="google-icon"></div>Continue with Google
+        </button>
+        <p id="loginError" class="error-msg"></p>
+      </div>
+
+      <!-- SIGNUP -->
+      <div id="signupForm" style="display:none;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="input-group">
+            <label>First Name</label>
+            <input type="text" id="signupFirst" placeholder="First">
+          </div>
+          <div class="input-group">
+            <label>Last Name</label>
+            <input type="text" id="signupLast" placeholder="Last">
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Date of Birth</label>
+          <input type="date" id="signupDob">
+        </div>
+        <div class="input-group">
+          <label>Email Address</label>
+          <input type="email" id="signupEmail" placeholder="your@email.com">
+        </div>
+        <div class="input-group">
+          <label>Password</label>
+          <input type="password" id="signupPassword" placeholder="Min 6 characters">
+        </div>
+        <button class="btn btn-green" onclick="emailSignup()">CREATE ACCOUNT</button>
+        <div class="divider">or</div>
+        <button class="google-btn" onclick="googleLogin()">
+          <div class="google-icon"></div>Sign up with Google
+        </button>
+        <p id="signupError" class="error-msg"></p>
+        <p id="signupSuccess" class="success-msg"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== OTP VERIFICATION ===== -->
+<div id="otpScreen" class="screen">
+  <div class="center-wrap">
+    <div style="font-size:44px;margin-bottom:6px;">📧</div>
+    <h2 style="margin-bottom:6px;">Verify your email</h2>
+    <p style="color:#94a3b8;font-size:13px;margin-bottom:26px;text-align:center;">
+      We sent a 6-digit code to<br><strong id="otpEmailLabel" style="color:#facc15;"></strong>
+    </p>
+    <div class="auth-box">
+      <input type="text" id="otpInput" class="otp-input" maxlength="6"
+             inputmode="numeric" placeholder="------"
+             onkeydown="if(event.key==='Enter') submitOtp()">
+      <button class="btn btn-green" style="margin-top:16px;" onclick="submitOtp()">VERIFY CODE</button>
+      <button class="btn btn-outline" id="resendBtn" onclick="resendOtp()">RESEND CODE</button>
+      <p id="otpMsg" style="font-size:13px;text-align:center;margin-top:10px;color:#94a3b8;"></p>
+      <button class="btn btn-red btn-small" style="width:100%;margin-top:10px;" onclick="logout()">CANCEL / LOG OUT</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RULES & TERMS ===== -->
+<div id="termsScreen" class="screen">
+  <div class="center-wrap">
+    <h2 style="margin-bottom:4px;">📜 Platform Rules & Terms</h2>
+    <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Please read before continuing</p>
+    <div class="terms-box">
+      <h4>1. Points, Not Cash</h4>
+      Points used in ABI Bingo have no fixed cash value. Balances are assigned and adjusted
+      manually by admins after verification and chat approval.
+
+      <h4>2. Deposits & Withdrawals</h4>
+      Any point deposit or withdrawal request must go through admin/CEO chat approval.
+      Automated payments are not part of this platform.
+
+      <h4>3. Fair Play</h4>
+      Cards are randomly assigned. Manually editing your card, balance, or game results
+      outside the app is prohibited and may result in a permanent ban.
+
+      <h4>4. Account Verification</h4>
+      Access to betting requires email verification and admin approval. Admins may request
+      an ID photo via chat for account verification.
+
+      <h4>5. Conduct</h4>
+      Abusive behavior toward admins or other players in chat is not tolerated and may
+      result in suspension.
+
+      <h4>6. Changes</h4>
+      Admins may update points, balances, or access status at any time as part of
+      platform management.
+    </div>
+    <div class="agree-row">
+      <input type="checkbox" id="agreeCheck">
+      <label for="agreeCheck" style="font-size:13px;color:#cbd5e1;">I have read and agree to the rules & terms above</label>
+    </div>
+    <button class="btn btn-green" style="max-width:460px;" onclick="acceptTerms()">I AGREE — CONTINUE</button>
+    <button class="btn btn-outline" style="max-width:460px;" onclick="logout()">DECLINE / LOG OUT</button>
+  </div>
+</div>
+
+<!-- ===== TUTORIAL ===== -->
+<div id="tutorial" class="screen">
+  <div style="display:flex;flex-direction:column;align-items:center;
+              padding:40px 20px;min-height:100vh;">
+    <div class="logo-big" style="font-size:36px;margin-bottom:4px;">ABI BINGO</div>
+    <p style="color:#64748b;margin-bottom:30px;">How to play</p>
+    <div class="tutorial-steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text"><strong>Browse the lobby</strong> — see live games, online players, and room info in real time.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text"><strong>Get approved</strong> — before your first bet, tap the chat icon and send a message and photo to an admin for verification.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text"><strong>Get points</strong> — once approved an admin assigns your point balance. Each game costs <strong style="color:#facc15;">30 points</strong>.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text"><strong>Join during betting phase</strong> — before numbers start calling, a random winning pattern is announced and you get a random unique card.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-text"><strong>Play</strong> — B(1-15) I(16-30) N(31-45) G(46-60) O(61-75). Mark called numbers on your card to match the announced pattern.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-text"><strong>Win automatically</strong> — the instant your card completes the announced pattern, your win is verified and the round stops!</div>
+      </div>
+      <button class="btn btn-green" style="margin-top:30px;" onclick="acceptTutorial()">GOT IT — LET'S PLAY</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== HOME / LOBBY ===== -->
+<div id="home" class="screen">
+  <div class="topbar">
+    <div class="topbar-logo">ABI BINGO</div>
+    <div class="topbar-right">
+      <div class="topbar-balance">⭐ <span id="balance">0</span> pts</div>
+      <button class="btn btn-red btn-small" onclick="logout()">OUT</button>
+    </div>
+  </div>
+
+  <!-- HOME TAB -->
+  <div id="homeTab" class="has-nav">
+    <div class="home-body">
+      <p style="color:#64748b;font-size:13px;margin:16px 0 4px;">Welcome back,</p>
+      <h2 style="font-size:22px;margin-bottom:16px;"><span id="username"></span></h2>
+
+      <!-- APPROVAL BANNER -->
+      <div class="card" id="approvalBanner" style="display:none;border-color:#ca8a04;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="font-size:24px;">⏳</div>
+          <div style="flex:1;">
+            <div style="font-weight:bold;color:#facc15;margin-bottom:4px;">Account Approval Needed</div>
+            <div style="font-size:12px;color:#94a3b8;line-height:1.8;" id="approvalBannerText"></div>
+          </div>
+        </div>
+        <button class="btn btn-blue btn-small" style="margin-top:10px;width:100%;" onclick="toggleChat();switchChatTab('support')">💬 CHAT WITH ADMIN</button>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num" id="onlineCount">0</div>
+          <div class="stat-label">Online</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="activeCount">0</div>
+          <div class="stat-label">Playing</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="totalWins">0</div>
+          <div class="stat-label">My Wins</div>
+        </div>
+      </div>
+
+      <div class="phase-bar">
+        <div>
+          <div class="phase-label">Game Phase</div>
+          <div class="phase-val" id="roundStatus">-</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="phase-label">Countdown</div>
+          <div style="font-size:24px;font-weight:900;color:#ef4444;" id="homeCountdown"></div>
+        </div>
+      </div>
+
+      <!-- ACTIVE PATTERN BADGE -->
+      <div class="pattern-badge" id="homePatternBadge" style="display:none;">
+        <div class="mini-grid" id="homePatternMini"></div>
+        <div class="pattern-badge-name">🎯 Tonight's pattern:<br><span id="homePatternName">-</span></div>
+      </div>
+
+      <div class="card" id="homeCardBox">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:12px;color:#64748b;">Preview card — locked in only when you JOIN</span>
+        </div>
+        <div class="bingo-header">
+          <div class="bingo-header-cell">B</div>
+          <div class="bingo-header-cell">I</div>
+          <div class="bingo-header-cell">N</div>
+          <div class="bingo-header-cell">G</div>
+          <div class="bingo-header-cell">O</div>
+        </div>
+        <div class="grid" id="homeCardGrid"></div>
+      </div>
+
+      <button class="btn btn-green" onclick="newCard()">🔀 NEW RANDOM CARD</button>
+      <button class="btn btn-purple" id="joinBtn" onclick="joinGame()">🎯 JOIN GAME (30 pts)</button>
+      <button class="btn btn-yellow" id="enterBtn" onclick="enterGame()" disabled>▶ ENTER GAME ROOM</button>
+      <p id="homeMsg" style="font-size:13px;color:#94a3b8;text-align:center;margin-top:8px;"></p>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="historyTab" class="has-nav" style="display:none;">
+    <div class="home-body">
+      <h3 style="margin:20px 0 10px;">My Game History</h3>
+      <div id="historyList">
+        <p style="color:#64748b;font-size:14px;">No games played yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav">
+    <button class="nav-btn on" id="navHome" onclick="switchPlayerTab('home')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      HOME
+    </button>
+    <button class="nav-btn" id="navHistory" onclick="switchPlayerTab('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+      HISTORY
+    </button>
+  </div>
+</div>
+
+<!-- ===== GAME SCREEN ===== -->
+<div id="game" class="screen">
+  <div class="topbar">
+    <div class="topbar-logo">LIVE 🎱</div>
+    <div class="topbar-right">
+      <div class="topbar-balance">⭐ <span id="gameBalance">0</span></div>
+      <button class="btn btn-outline btn-small" onclick="backHome()">← BACK</button>
+    </div>
+  </div>
+
+  <div class="game-body has-nav" style="padding-bottom:20px;">
+
+    <div class="game-phase-bar">
+      <div>
+        <div style="font-size:11px;color:#64748b;">PHASE</div>
+        <div style="font-weight:bold;color:#facc15;" id="gamePhaseLabel">-</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:11px;color:#64748b;">COUNTDOWN</div>
+        <div class="game-countdown" id="gameCountdown"></div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:#64748b;">CALLED</div>
+        <div style="font-weight:bold;color:#facc15;" id="calledCount">0/75</div>
+      </div>
+    </div>
+
+    <!-- ACTIVE PATTERN BADGE -->
+    <div class="pattern-badge" id="gamePatternBadge" style="display:none;">
+      <div class="mini-grid" id="gamePatternMini"></div>
+      <div class="pattern-badge-name">🎯 Pattern:<br><span id="gamePatternName">-</span></div>
+    </div>
+
+    <div class="letter-display" id="letterDisplay">-</div>
+    <div id="numberBox">-</div>
+
+    <div class="cartela-wrap">
+      <div class="bingo-header">
+        <div class="bingo-header-cell">B</div>
+        <div class="bingo-header-cell">I</div>
+        <div class="bingo-header-cell">N</div>
+        <div class="bingo-header-cell">G</div>
+        <div class="bingo-header-cell">O</div>
+      </div>
+      <div class="grid" id="card"></div>
+    </div>
+
+    <div style="margin:14px 0;">
+      <button class="btn btn-green" id="bingoBtn" onclick="claimBingo()" disabled>
+        🎉 BINGO!
+      </button>
+    </div>
+
+    <div>
+      <p style="font-size:12px;color:#64748b;margin-bottom:4px;">Called numbers:</p>
+      <div class="history-wrap" id="history"></div>
+    </div>
+
+    <p id="resultMsg" style="font-size:14px;text-align:center;
+       margin-top:10px;font-weight:bold;min-height:20px;"></p>
+  </div>
+</div>
+
+<!-- ===== ADMIN PANEL ===== -->
+<div id="admin" class="screen">
+  <div class="topbar">
+    <div class="topbar-logo">⚙️ ADMIN</div>
+    <div class="topbar-right">
+      <button class="btn btn-red btn-small" onclick="logout()">LOG OUT</button>
+    </div>
+  </div>
+  <div class="admin-body">
+    <div class="admin-tabs">
+      <button class="admin-tab on" onclick="showAdminTab('tabDash',this)">📊 Dashboard</button>
+      <button class="admin-tab" onclick="showAdminTab('tabRequests',this)">👥 Requests</button>
+      <button class="admin-tab" onclick="showAdminTab('tabPoints',this)">⭐ Points</button>
+      <button class="admin-tab" onclick="showAdminTab('tabRound',this)">🎮 Round</button>
+      <button class="admin-tab" onclick="showAdminTab('tabPatterns',this)">🧩 Patterns</button>
     </div>
 
     <!-- DASHBOARD -->
