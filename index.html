@@ -132,8 +132,7 @@ input::placeholder{ color:#475569; }
 }
 .step-text{ font-size:14px; color:#cbd5e1; line-height:1.6; }
 
-/* ===== ACCESS PENDING ===== */
-.access-wrap{ max-width:480px; margin:0 auto; padding:20px; }
+/* ===== ACCESS / APPROVAL BANNER (on Home) ===== */
 .pill{ padding:5px 14px; border-radius:20px; font-size:12px; font-weight:bold; }
 .pill-pending{ background:#ca8a04; color:white; }
 .pill-approved{ background:#16a34a; color:white; }
@@ -492,11 +491,11 @@ input::placeholder{ color:#475569; }
     <div class="tutorial-steps">
       <div class="step">
         <div class="step-num">1</div>
-        <div class="step-text"><strong>Request access</strong> — tap the chat icon and send a message and photo to an admin for verification.</div>
+        <div class="step-text"><strong>Create your account</strong> — verify your email, then browse the app freely.</div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
-        <div class="step-text"><strong>Wait for approval</strong> — an admin reviews your request and approves or rejects it manually.</div>
+        <div class="step-text"><strong>Get approved</strong> — before your first bet, tap the chat icon and send a message and photo to an admin for verification.</div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
@@ -519,29 +518,6 @@ input::placeholder{ color:#475569; }
   </div>
 </div>
 
-<!-- ===== ACCESS PENDING ===== -->
-<div id="accessChat" class="screen">
-  <div class="topbar">
-    <div class="topbar-logo">ABI BINGO</div>
-    <div class="topbar-right">
-      <span id="accessStatusPill" class="pill pill-pending">PENDING</span>
-      <button class="btn btn-outline btn-small" onclick="logout()">LOG OUT</button>
-    </div>
-  </div>
-  <div class="access-wrap">
-    <div class="card" style="text-align:center;margin-top:20px;">
-      <div style="font-size:48px;margin-bottom:10px;">⏳</div>
-      <h2 style="margin-bottom:10px;">Awaiting Approval</h2>
-      <p style="color:#94a3b8;font-size:14px;line-height:1.7;">
-        Tap the <strong style="color:#3b82f6;">💬 chat button</strong> in the bottom right corner.
-        Send a message and a verification photo to an admin.
-        You will be notified here once your account is approved.
-      </p>
-      <button class="btn btn-blue" style="margin-top:20px;" onclick="refreshStatus()">REFRESH STATUS</button>
-    </div>
-  </div>
-</div>
-
 <!-- ===== HOME ===== -->
 <div id="home" class="screen">
   <div class="topbar">
@@ -557,6 +533,18 @@ input::placeholder{ color:#475569; }
     <div class="home-body">
       <p style="color:#64748b;font-size:13px;margin:16px 0 4px;">Welcome back,</p>
       <h2 style="font-size:22px;margin-bottom:16px;"><span id="username"></span></h2>
+
+      <!-- APPROVAL / VERIFICATION BANNER -->
+      <div class="card" id="approvalBanner" style="display:none;border-color:#ca8a04;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="font-size:24px;">⏳</div>
+          <div style="flex:1;">
+            <div style="font-weight:bold;color:#facc15;margin-bottom:4px;" id="approvalBannerTitle">Account Setup Needed</div>
+            <div style="font-size:12px;color:#94a3b8;line-height:1.8;" id="approvalBannerText"></div>
+          </div>
+        </div>
+        <button class="btn btn-blue btn-small" style="margin-top:10px;width:100%;" onclick="toggleChat();switchChatTab('support')">💬 CHAT WITH ADMIN</button>
+      </div>
 
       <div class="stats-row">
         <div class="stat-card">
@@ -898,7 +886,7 @@ function switchAuthTab(tab){
 }
 
 /* ======================================================
-   EMAIL SIGNUP
+   EMAIL SIGNUP  (sends Firebase email-verification link)
    ====================================================== */
 async function emailSignup(){
   let first = document.getElementById("signupFirst").value.trim();
@@ -915,7 +903,9 @@ async function emailSignup(){
     let cred = await auth.createUserWithEmailAndPassword(email,pass);
     await cred.user.updateProfile({displayName:first+" "+last});
     await createUserDoc(cred.user,{firstName:first,lastName:last,dob});
-    document.getElementById("signupSuccess").innerText="Account created!";
+    try{ await cred.user.sendEmailVerification(); }catch(e){}
+    document.getElementById("signupSuccess").innerText=
+      "Account created! We sent a verification link to "+email+" — please confirm it before betting.";
   }catch(e){ errEl.innerText=e.message; }
 }
 
@@ -939,7 +929,7 @@ async function emailLogin(){
 async function googleLogin(){
   const provider = new firebase.auth.GoogleAuthProvider();
   try{
-    await auth.signInWithRedirect(provider);
+    await auth.ssignInWithRedirect(provider);
   }catch(e){
     document.getElementById("loginError").innerText  = e.message;
     document.getElementById("signupError").innerText = e.message;
@@ -983,12 +973,11 @@ auth.onAuthStateChanged(async user=>{
     let prev = userData?.accessStatus;
     userData = snap.data();
     updateBalanceUI();
-    updateStatusUI();
+    updateApprovalBanner();
     loadMyWins();
     // notify player if just approved
     if(prev==="pending" && userData.accessStatus==="approved"){
-      pushNotif("Access Approved ✓","An admin has approved your account. You can now play!");
-      routeUser();
+      pushNotif("Access Approved ✓","An admin has approved your account. You can now place bets!");
     }
   });
 
@@ -1025,21 +1014,17 @@ async function createUserDoc(user,extra){
   });
 }
 
+/* Always land on Home now — approval/verification are gated at bet time, not at login */
 function routeUser(){
-  if(userData.accessStatus==="approved"){
-    show("home");
-    document.getElementById("username").innerText = userData.name||"";
-    updateBalanceUI();
-    setupHomeListeners();
-    setupPlayerChat();
-    newCard();
-    loadMyWins();
-    loadPlayerHistory();
-  } else {
-    show("accessChat");
-    updateStatusUI();
-    setupPlayerChat();
-  }
+  show("home");
+  document.getElementById("username").innerText = userData.name||"";
+  updateBalanceUI();
+  updateApprovalBanner();
+  setupHomeListeners();
+  setupPlayerChat();
+  newCard();
+  loadMyWins();
+  loadPlayerHistory();
 }
 
 function acceptTutorial(){
@@ -1048,19 +1033,59 @@ function acceptTutorial(){
   routeUser();
 }
 
-function refreshStatus(){ routeUser(); }
-
 function updateBalanceUI(){
   let b=userData?.balance||0;
   document.querySelectorAll("#balance,#gameBalance").forEach(el=>el.innerText=b);
 }
 
-function updateStatusUI(){
-  let pill=document.getElementById("accessStatusPill");
-  if(!pill) return;
-  let s=userData?.accessStatus||"pending";
-  pill.className="pill pill-"+s;
-  pill.innerText=s.toUpperCase();
+/* ======================================================
+   APPROVAL / EMAIL-VERIFICATION BANNER
+   ====================================================== */
+function updateApprovalBanner(){
+  let banner=document.getElementById("approvalBanner");
+  if(!banner || !currentUser || !userData) return;
+
+  let emailOk  = currentUser.emailVerified;   // Google sign-ins are always true
+  let status   = userData.accessStatus||"pending";
+  let approved = status==="approved";
+
+  if(emailOk && approved){
+    banner.style.display="none";
+    return;
+  }
+
+  banner.style.display="block";
+
+  let emailLine = emailOk
+    ? "✅ Email: Verified"
+    : "⏳ Email: Not verified — check your inbox for the link " +
+      "&nbsp;<span style='color:#3b82f6;cursor:pointer;text-decoration:underline;' onclick='resendVerification()'>Resend</span>" +
+      " &nbsp;|&nbsp; <span style='color:#3b82f6;cursor:pointer;text-decoration:underline;' onclick='refreshVerification()'>I verified, refresh</span>";
+
+  let statusLine = status==="rejected"
+    ? "❌ Admin approval: Rejected — please chat with an admin"
+    : (approved ? "✅ Admin approval: Approved" : "⏳ Admin approval: Pending — chat with an admin to get approved");
+
+  document.getElementById("approvalBannerText").innerHTML = emailLine+"<br>"+statusLine;
+}
+
+async function resendVerification(){
+  if(!currentUser) return;
+  try{
+    await currentUser.sendEmailVerification();
+    toast("Verification email sent!","green");
+  }catch(e){
+    toast(e.message,"red");
+  }
+}
+
+async function refreshVerification(){
+  if(!currentUser) return;
+  await currentUser.reload();
+  currentUser = auth.currentUser;
+  updateApprovalBanner();
+  toast(currentUser.emailVerified?"Email verified! ✅":"Not verified yet.",
+        currentUser.emailVerified?"green":"red");
 }
 
 function loadMyWins(){
@@ -1255,8 +1280,27 @@ function updateGameUI(d){
 
 /* ======================================================
    JOIN GAME
+   (Now gated here: email verified + admin approved)
    ====================================================== */
 async function joinGame(){
+  if(!currentUser.emailVerified){
+    toast("Please verify your email first.","red");
+    document.getElementById("homeMsg").innerText=
+      "⏳ Check your inbox for the verification link, then tap 'I verified, refresh'.";
+    updateApprovalBanner();
+    return;
+  }
+
+  if(userData.accessStatus!=="approved"){
+    toast("Your account needs admin approval before betting.","red");
+    document.getElementById("homeMsg").innerText=
+      "⏳ Waiting for admin approval. Tap the chat button below to reach an admin.";
+    updateApprovalBanner();
+    toggleChat();
+    switchChatTab("support");
+    return;
+  }
+
   if(userData.balance<30){
     toast("Not enough points. Ask an admin.","red"); return;
   }
